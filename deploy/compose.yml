@@ -3,13 +3,16 @@
 # (na disputa por CPU, os outros contêineres ganham).
 #
 # Pastas no servidor (CENTRAL_DIR, padrão /opt/central):
-#   dados/      banco e backups (dono 1000)
+#   dados/      banco e backups
 #   config/     local.json (só leitura)
-#   segredos/   chave do cofre, chave e token do WhatsApp (600, dono 1000)
-#   whatsapp/   sessão cifrada do WhatsApp (dono 1000)
+#   segredos/   chave do cofre, chave e token do WhatsApp (600)
+#   whatsapp/   sessão cifrada do WhatsApp
+# Tudo com dono CENTRAL_UID (padrão 10777): um UID que não é de ninguém na
+# máquina, para nenhum usuário do servidor ler os segredos sem ser root.
 
 x-endurecido: &endurecido
   restart: unless-stopped
+  user: '${CENTRAL_UID:-10777}:${CENTRAL_UID:-10777}'
   read_only: true
   tmpfs: [/tmp]
   cap_drop: [ALL]

@@ -150,7 +150,7 @@ máquina com outros sistemas:
 
 - teto de **256 MB / 0,5 CPU** para a Central e de **512 MB / 0,5 CPU** para o
   WhatsApp, com `cpu_shares` baixo, para que na disputa os outros ganhem;
-- usuário sem privilégio, sistema de arquivos só leitura, sem *capabilities* e
+- usuário sem privilégio (UID 10777, que não é de ninguém na máquina), sistema de arquivos só leitura, sem *capabilities* e
   porta só em `127.0.0.1`;
 - [`nginx-central.conf`](deploy/nginx-central.conf) com limite de tentativas
   de login e a entrada do WhatsApp fechada para a internet.
@@ -158,7 +158,7 @@ máquina com outros sistemas:
 ```sh
 mkdir -p /opt/central/{dados,config,segredos,whatsapp}
 openssl rand -base64 32 > /opt/central/segredos/chave      # chave do cofre
-chown -R 1000:1000 /opt/central && chmod 600 /opt/central/segredos/*
+chown -R 10777:10777 /opt/central/{dados,segredos,whatsapp} && chmod 600 /opt/central/segredos/*
 cp config/local.example.json /opt/central/config/local.json
 docker compose -f deploy/compose.yml up -d --build
 docker exec central node src/admin.ts convite
