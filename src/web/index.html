@@ -732,14 +732,29 @@ function mostrarTela(app) {
 function mostrarEntrada(erro) {
   mostrarTela(false);
   D.hoje = null;
-  $('#entrada').innerHTML = `<form class="entrada" data-entrar>
-    <h1>Central</h1><p>Entre com a sua senha e o código do autenticador.</p>
+  // O campo "usuario" escondido existe para o gerenciador de senhas: sem ele, o
+  // navegador põe o seu login salvo no campo do código.
+  $('#entrada').innerHTML = `<form class="entrada" data-entrar novalidate>
+    <h1>Central</h1><p>Entre com a sua senha e o código do app autenticador.</p>
+    <input name="usuario" autocomplete="username" value="central" hidden>
     <label>Senha<input name="senha" type="password" autocomplete="current-password" required autofocus></label>
-    <label>Código do autenticador<input name="codigo" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
+    <label>Código do autenticador (6 números)<input name="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="000000"></label>
     <button class="btn forte">Entrar</button>
     ${erro ? `<p class="salvo erro" style="margin-top:14px">${esc(erro)}</p>` : ''}
   </form>`;
 }
+
+// Central sem dono: não adianta pedir senha. Pede o convite (link inteiro ou só o código).
+function mostrarPrimeiroAcesso(erro) {
+  mostrarTela(false);
+  $('#entrada').innerHTML = `<form class="entrada" data-primeiro novalidate>
+    <h1>Primeiro acesso</h1><p>A Central ainda não tem senha. Cole aqui o link de convite que você recebeu (ou só o código que começa com <b>cvt_</b>).</p>
+    <label>Convite<input name="convite" autocomplete="off" spellcheck="false" placeholder="https://…/#convite=cvt_…" required autofocus></label>
+    <button class="btn forte">Continuar</button>
+    ${erro ? `<p class="salvo erro" style="margin-top:14px">${esc(erro)}</p>` : ''}
+  </form>`;
+}
+const codigoLimpo = (v) => String(v || '').replace(/\s/g, '');
 
 function mostrarConvite(convite, passo = 1, dados = {}, erro) {
   mostrarTela(false);
@@ -764,9 +779,17 @@ function mostrarConvite(convite, passo = 1, dados = {}, erro) {
 document.addEventListener('submit', async (e) => {
   const f = e.target;
   const d = Object.fromEntries(new FormData(f));
+  if (f.matches('[data-primeiro]')) {
+    e.preventDefault();
+    const c = String(d.convite || '').match(/cvt_[\w-]{20,}/)?.[0];
+    return c ? mostrarConvite(c) : mostrarPrimeiroAcesso('Não achei o convite aí. Ele começa com cvt_.');
+  }
   if (f.matches('[data-entrar]')) {
     e.preventDefault();
-    try { await api('POST', '/api/entrar', { senha: d.senha, codigo: d.codigo }); iniciarApp(); } catch (er) { mostrarEntrada(er.message); }
+    d.codigo = codigoLimpo(d.codigo);
+    if (!d.senha) return mostrarEntrada('Digite a senha.');
+    if (!/^[0-9]{6}$/.test(d.codigo)) return mostrarEntrada('O código são os 6 números que aparecem no app autenticador (Google Authenticator, Aegis…), não o seu usuário.');
+    try { await api('POST', '/api/entrar', { senha: d.senha, codigo: d.codigo }); iniciarApp(); } catch (er) { /configurada/.test(er.message) ? mostrarPrimeiroAcesso() : mostrarEntrada(er.message); }
   }
   if (f.matches('[data-convite-1]')) {
     e.preventDefault();
@@ -778,7 +801,7 @@ document.addEventListener('submit', async (e) => {
     e.preventDefault();
     const convite = $('#entrada').dataset.convite;
     try {
-      await api('POST', '/api/convite/ativar', { convite, codigo: d.codigo });
+      await api('POST', '/api/convite/ativar', { convite, codigo: codigoLimpo(d.codigo) });
       history.replaceState(null, '', location.pathname);
       mostrarEntrada();
       $('#entrada p').textContent = 'Pronto. Agora entre com a senha e um código novo do autenticador.';
@@ -802,7 +825,7 @@ function iniciarApp() {
   try {
     const s = await (await fetch('api/sessao')).json();
     if (s.logado) return iniciarApp();
-    mostrarEntrada(s.configurado ? '' : 'Primeiro acesso: abra o link de convite que você recebeu.');
+    s.configurado ? mostrarEntrada() : mostrarPrimeiroAcesso();
   } catch { mostrarEntrada('Sem conexão com a Central.'); }
 })();
 setInterval(() => {
