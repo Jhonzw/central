@@ -1,0 +1,11 @@
+{
+  "name": "central",
+  "private": true,
+  "type": "module",
+  "description": "Central pessoal: espaços separados por empresa, pessoas, tarefas e o dia juntando tudo.",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "start": "node src/server.ts",
+    "test": "node --test test/*.test.ts"
+  }
+}

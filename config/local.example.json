@@ -1,0 +1,11 @@
+{
+  "_comentario": "Copie para config/local.json (fora do git). Os espaços são criados na primeira subida e depois editados pela tela.",
+  "porta": 7800,
+  "espacos": [
+    { "id": "pessoal", "nome": "Pessoal", "cor": "#6b5b95" },
+    { "id": "empresa-a", "nome": "Empresa A", "cor": "#0e5a55" }
+  ],
+  "conectores": [
+    { "id": "painel-a", "espaco": "empresa-a", "tipo": "resumo-http", "nome": "Painel da Empresa A", "url": "http://localhost:7790/api/resumo" }
+  ]
+}
