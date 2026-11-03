@@ -35,6 +35,7 @@ services:
     environment:
       CENTRAL_PROXY: '1'
       CENTRAL_HTTPS: '${CENTRAL_HTTPS:-0}'
+      CENTRAL_BASE: '${CENTRAL_BASE:-}'
       CENTRAL_HOSTS: 'central:7800,${CENTRAL_DOMINIO:-localhost}'
     volumes:
       - ${CENTRAL_DIR:-/opt/central}/dados:/dados

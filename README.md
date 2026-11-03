@@ -164,6 +164,24 @@ docker compose -f deploy/compose.yml up -d --build
 docker exec central node src/admin.ts convite
 ```
 
+**Domínio próprio ou caminho dentro de um site.** O melhor é um subdomínio só
+da Central (`central.seu-dominio`, com `nginx-central.conf`): é outra origem, e
+nada mais no servidor alcança a sessão. Se não der para mexer no DNS, ela roda
+em `https://seu-dominio/central/` com
+[`nginx-central-caminho.conf`](deploy/nginx-central-caminho.conf) e
+`CENTRAL_BASE=/central`. Aí o cookie fica preso a `/central/` e os outros sites
+do domínio nem o recebem, mas é a mesma origem: um script de outro site ali
+conseguiria chamar a API. Só use o caminho se os outros sites forem seus e não
+carregarem script de terceiros.
+
+```sh
+# Exemplo de variáveis em /opt/central/central.env
+CENTRAL_BASE=/central
+CENTRAL_HTTPS=1
+CENTRAL_DOMINIO=seu-dominio.com.br
+docker compose --env-file /opt/central/central.env -f deploy/compose.yml up -d --build
+```
+
 Backup diário em `dados/backup/`, com 7 cópias. Guarde a chave do cofre em
 outro lugar: sem ela, o backup não abre os segredos.
 
@@ -176,6 +194,7 @@ outro lugar: sem ela, o backup não abre os segredos.
 | `CENTRAL_HOSTS` | Nomes aceitos no `Host`, separados por vírgula (ex.: o seu domínio). |
 | `CENTRAL_PROXY` | `1` atrás de nginx: o IP vem de `X-Real-IP`. |
 | `CENTRAL_HTTPS` | `1` quando servida por HTTPS (manda HSTS). |
+| `CENTRAL_BASE` | Caminho quando divide o domínio com outro site (ex.: `/central`). |
 | `CENTRAL_BANCO` | Arquivo SQLite (padrão `data/central.sqlite3`). |
 | `CENTRAL_CHAVE_ARQ` | Chave do cofre (padrão `config/chave`, criada na 1ª subida). |
 | `CENTRAL_CONFIG` | Outro `local.json`. |

@@ -15,6 +15,7 @@ export type Config = {
   hosts: string[];           // nomes aceitos no cabeçalho Host, além de localhost
   proxy: boolean;            // atrás do nginx: o IP de verdade vem em X-Real-IP
   https: boolean;            // servido por HTTPS: manda HSTS
+  base: string;              // caminho quando divide o domínio com outro site (ex.: /central); vazio = domínio só dela
   banco: string;
   chave: string;             // arquivo da chave do cofre (fora da pasta do banco)
   backups: string;
@@ -23,6 +24,12 @@ export type Config = {
   espacos: Array<Record<string, unknown>>;
   conectores: ConfigConector[];
 };
+
+function caminhoBase(v: unknown): string {
+  const b = String(v ?? '').replace(/\/+$/, '');
+  if (b && !/^(\/[a-z0-9-]+)+$/.test(b)) throw new Error(`CENTRAL_BASE inválido: ${b} (use algo como /central)`);
+  return b;
+}
 
 export function lerConfig(env = process.env): Config {
   const arq = env.CENTRAL_CONFIG || join(RAIZ, 'config/local.json');
@@ -37,6 +44,7 @@ export function lerConfig(env = process.env): Config {
     hosts: [...lista(env.CENTRAL_HOSTS), ...(Array.isArray(f.hosts) ? f.hosts.map((h: string) => h.toLowerCase()) : [])],
     proxy: sim(env.CENTRAL_PROXY ?? f.proxy),
     https: sim(env.CENTRAL_HTTPS ?? f.https),
+    base: caminhoBase(env.CENTRAL_BASE ?? f.base),
     banco,
     chave: env.CENTRAL_CHAVE_ARQ || f.chave || join(RAIZ, 'config/chave'),
     backups: env.CENTRAL_BACKUPS || f.backups || join(dirname(banco), 'backup'),

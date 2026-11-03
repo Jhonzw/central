@@ -6,9 +6,9 @@
 <title>Central</title>
 <style>
   /* IBM Plex servida pela própria Central (OFL): a página não chama ninguém de fora. */
-  @font-face { font-family: "IBM Plex Sans"; font-weight: 100 700; font-display: swap; src: url(/fontes/plex-sans.woff2) format("woff2"); }
-  @font-face { font-family: "IBM Plex Mono"; font-weight: 400; font-display: swap; src: url(/fontes/plex-mono-400.woff2) format("woff2"); }
-  @font-face { font-family: "IBM Plex Mono"; font-weight: 500; font-display: swap; src: url(/fontes/plex-mono-500.woff2) format("woff2"); }
+  @font-face { font-family: "IBM Plex Sans"; font-weight: 100 700; font-display: swap; src: url(fontes/plex-sans.woff2) format("woff2"); }
+  @font-face { font-family: "IBM Plex Mono"; font-weight: 400; font-display: swap; src: url(fontes/plex-mono-400.woff2) format("woff2"); }
+  @font-face { font-family: "IBM Plex Mono"; font-weight: 500; font-display: swap; src: url(fontes/plex-mono-500.woff2) format("woff2"); }
   :root {
     --bg: #f7f6f2; --papel: #fdfcf9; --tinta: #1c1b19; --suave: #6f6c64; --fio: #e3e0d8;
     --acento: #0e5a55; --acento-fundo: #e5efec; --vermelho: #b3261e; --vermelho-fundo: #f8e6e3; --ambar: #9a5b00; --verde: #2f7a47;
@@ -199,8 +199,9 @@ const UI = { aba: 'hoje', espaco: 'todos', filtro: 'abertas', estado: 'responder
 const NOME_ESTADO = { responder: 'Responder', esperando: 'Esperando', resolvida: 'Resolvidas', arquivada: 'Arquivadas' };
 const ABAS = ['hoje', 'caixa', 'tarefas', 'pessoas', 'espacos', 'conexoes', 'busca'];
 
+// Caminhos relativos à página: a Central funciona tanto na raiz de um domínio quanto em /central/.
 async function api(metodo, caminho, corpo) {
-  const r = await fetch(caminho, { method: metodo, headers: corpo ? { 'Content-Type': 'application/json', 'X-Central': '1' } : { 'X-Central': '1' },
+  const r = await fetch(caminho.slice(1), { method: metodo, headers: corpo ? { 'Content-Type': 'application/json', 'X-Central': '1' } : { 'X-Central': '1' },
     body: corpo ? JSON.stringify(corpo) : undefined, credentials: 'same-origin' });
   const j = await r.json().catch(() => ({}));
   if (r.status === 401 && !caminho.startsWith('/api/entrar') && !caminho.startsWith('/api/convite')) { mostrarEntrada(); throw new Error('sessão encerrada'); }
@@ -799,9 +800,9 @@ function iniciarApp() {
   // O convite sai da barra de endereço na hora (não fica no histórico nem em print).
   if (convite) { history.replaceState(null, '', location.pathname); return mostrarConvite(convite); }
   try {
-    const s = await (await fetch('/api/sessao')).json();
+    const s = await (await fetch('api/sessao')).json();
     if (s.logado) return iniciarApp();
-    mostrarEntrada(s.configurado ? '' : 'A Central ainda não tem dono: peça um convite (node src/admin.ts convite).');
+    mostrarEntrada(s.configurado ? '' : 'Primeiro acesso: abra o link de convite que você recebeu.');
   } catch { mostrarEntrada('Sem conexão com a Central.'); }
 })();
 setInterval(() => {

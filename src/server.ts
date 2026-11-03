@@ -43,7 +43,11 @@ const coletor = cfg.emailMinutos > 0 ? iniciarColetor(db, cofre, { minutos: cfg.
 agendar(db, cfg);
 
 const HOSTS = new Set([`localhost:${cfg.porta}`, `127.0.0.1:${cfg.porta}`, ...cfg.hosts]);
-const COOKIE = '__Host-central';
+// Com domínio próprio, __Host- prende o cookie ao nome exato. Dividindo o
+// domínio (base /central), o cookie fica só no caminho da Central: os outros
+// sites do mesmo domínio nem recebem a sessão.
+const COOKIE = cfg.base ? '__Secure-central' : '__Host-central';
+const CAMINHO_COOKIE = cfg.base ? cfg.base + '/' : '/';
 const WEB = new URL('./web/', import.meta.url);
 
 type Pedido = { req: IncomingMessage; res: ServerResponse; url: URL; ip: string; m: RegExpMatchArray };
@@ -90,7 +94,7 @@ function cookie(req: IncomingMessage): string | undefined {
   }
 }
 const marcarSessao = (res: ServerResponse, token: string, segundos: number) =>
-  res.setHeader('Set-Cookie', `${COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${segundos}`);
+  res.setHeader('Set-Cookie', `${COOKIE}=${token}; Path=${CAMINHO_COOKIE}; HttpOnly; Secure; SameSite=Strict; Max-Age=${segundos}`);
 
 function ipDe(req: IncomingMessage): string {
   const direto = req.socket.remoteAddress || '';
