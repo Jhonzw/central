@@ -113,7 +113,9 @@
   .entrada .btn { margin-top: 18px; padding: 8px 18px; }
   .segredo { font: 500 17px/1.6 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .06em; padding: 12px 14px;
     background: var(--papel); border: 1px solid var(--fio); border-radius: 6px; word-break: break-all; user-select: all; }
-  .uri { font-size: 12px; color: var(--suave); word-break: break-all; margin-top: 6px; user-select: all; }
+  .qr { width: 220px; max-width: 100%; margin: 12px 0 4px; border-radius: 6px; overflow: hidden; }
+  .qr svg { display: block; width: 100%; height: auto; }
+  .entrada .dica { font-size: 13px; color: var(--suave); margin: 10px 0 6px; }
 
   .msgs { display: flex; flex-direction: column; gap: 10px; max-height: 520px; overflow: auto; padding-right: 4px; }
   .msg { border-left: 2px solid var(--fio); padding: 2px 0 2px 12px; }
@@ -765,9 +767,10 @@ function mostrarConvite(convite, passo = 1, dados = {}, erro) {
       <button class="btn forte">Continuar</button>
       ${erro ? `<p class="salvo erro" style="margin-top:14px">${esc(erro)}</p>` : ''}
     </form>` : `<form class="entrada" data-convite-2>
-      <h1>Autenticador</h1><p>No Google Authenticator, Aegis ou 1Password, adicione uma conta pela <b>chave de configuração</b>:</p>
+      <h1>Autenticador</h1><p>Abra o Google Authenticator (ou Aegis, 1Password) no celular, toque em <b>+</b> e <b>leia este QR code</b>:</p>
+      <div class="qr">${dados.qr || ''}</div>
+      <p class="dica">Sem câmera? Escolha "inserir chave de configuração" e digite:</p>
       <div class="segredo">${esc(dados.segredo.match(/.{1,4}/g).join(' '))}</div>
-      <div class="uri">${esc(dados.uri)}</div>
       <label>Código de 6 dígitos que o app mostra<input name="codigo" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required autofocus></label>
       <button class="btn forte">Ativar</button>
       ${erro ? `<p class="salvo erro" style="margin-top:14px">${esc(erro)}</p>` : ''}

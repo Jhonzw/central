@@ -31,6 +31,7 @@ import { montarHoje } from './hoje.ts';
 import { validarConfig, guardarEmpurrado } from './conectores/index.ts';
 import { iniciarColetor, lerConta } from './email/coletor.ts';
 import { agendar } from './manutencao.ts';
+import { qrSvg } from './qr.ts';
 
 const cfg = lerConfig();
 const db = abrir(cfg.banco);
@@ -138,7 +139,7 @@ const PUBLICAS: Array<[string, RegExp, Fn]> = [
     marcarSessao(res, token, 30 * 86400);
     return { ok: true };
   }],
-  ['POST', /^\/api\/convite\/abrir$/, async ({ req, ip }) => { const b = await lerCorpo(req); return acesso.abrirConvite(db, cofre, { convite: b.convite, senha: b.senha, ip }); }],
+  ['POST', /^\/api\/convite\/abrir$/, async ({ req, ip }) => { const b = await lerCorpo(req); const r = await acesso.abrirConvite(db, cofre, { convite: b.convite, senha: b.senha, ip }); return { ...r, qr: qrSvg(r.uri) }; }],
   ['POST', /^\/api\/convite\/ativar$/, async ({ req, ip }) => { const b = await lerCorpo(req); acesso.ativarConvite(db, cofre, { convite: b.convite, codigo: b.codigo, ip }); return { ok: true }; }],
 ];
 

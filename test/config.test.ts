@@ -20,3 +20,18 @@ test('a página só usa caminhos relativos (funciona em /central/)', () => {
   const html = readFileSync(new URL('../src/web/index.html', import.meta.url), 'utf8');
   assert.doesNotMatch(html, /url\(\/|fetch\(['"`]\//);
 });
+
+test('QR do autenticador: SVG só com números e tamanho de versão válida', async () => {
+  const { gerarQr, qrSvg } = await import('../src/qr.ts');
+  const uri = 'otpauth://totp/Central:dono?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=Central&algorithm=SHA1&digits=6&period=30';
+  const q = gerarQr(uri);
+  assert.equal((q.lado - 17) % 4, 0);
+  // Os três localizadores nos cantos (canto escuro, anel claro em volta do miolo).
+  for (const [x, y] of [[0, 0], [q.lado - 7, 0], [0, q.lado - 7]]) {
+    assert.equal(q.escuro(x, y), true);
+    assert.equal(q.escuro(x + 1, y + 1), false);
+    assert.equal(q.escuro(x + 3, y + 3), true);
+  }
+  assert.match(qrSvg(uri), /^<svg [^<]*><rect [^<]*\/><path d="[Mhvz0-9,-]+" fill="#000"\/><\/svg>$/);
+  assert.throws(() => gerarQr('x'.repeat(400)), /grande demais/);
+});
