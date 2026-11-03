@@ -2,3 +2,5 @@ node_modules/
 data/
 .env
 config/local.json
+config/chave
+whatsapp/sessao/

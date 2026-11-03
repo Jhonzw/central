@@ -4,9 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Central</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+  /* IBM Plex servida pela própria Central (OFL): a página não chama ninguém de fora. */
+  @font-face { font-family: "IBM Plex Sans"; font-weight: 100 700; font-display: swap; src: url(/fontes/plex-sans.woff2) format("woff2"); }
+  @font-face { font-family: "IBM Plex Mono"; font-weight: 400; font-display: swap; src: url(/fontes/plex-mono-400.woff2) format("woff2"); }
+  @font-face { font-family: "IBM Plex Mono"; font-weight: 500; font-display: swap; src: url(/fontes/plex-mono-500.woff2) format("woff2"); }
   :root {
     --bg: #f7f6f2; --papel: #fdfcf9; --tinta: #1c1b19; --suave: #6f6c64; --fio: #e3e0d8;
     --acento: #0e5a55; --acento-fundo: #e5efec; --vermelho: #b3261e; --vermelho-fundo: #f8e6e3; --ambar: #9a5b00; --verde: #2f7a47;
@@ -103,6 +105,33 @@
   .espaco-linha input[type=color] { padding: 2px; height: 34px; }
   .rodape { margin-top: 40px; font-size: 13px; color: var(--suave); }
 
+  .busca-topo { width: 190px; padding: 4px 9px; font-size: 13px; }
+  .entrada { max-width: 400px; margin: 12vh auto 0; }
+  .entrada h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -.02em; }
+  .entrada p { color: var(--suave); margin: 0 0 22px; }
+  .entrada label { margin-top: 12px; }
+  .entrada .btn { margin-top: 18px; padding: 8px 18px; }
+  .segredo { font: 500 17px/1.6 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .06em; padding: 12px 14px;
+    background: var(--papel); border: 1px solid var(--fio); border-radius: 6px; word-break: break-all; user-select: all; }
+  .uri { font-size: 12px; color: var(--suave); word-break: break-all; margin-top: 6px; user-select: all; }
+
+  .msgs { display: flex; flex-direction: column; gap: 10px; max-height: 520px; overflow: auto; padding-right: 4px; }
+  .msg { border-left: 2px solid var(--fio); padding: 2px 0 2px 12px; }
+  .msg.minha { border-left-color: var(--acento); }
+  .msg .quem { font-size: 12px; color: var(--suave); }
+  .msg .txt { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; margin-top: 2px; }
+  .msg .ass { font-weight: 500; font-size: 14px; }
+  .aviso { font-size: 13px; color: var(--suave); border-left: 2px solid var(--ambar); padding: 2px 0 2px 10px; margin: 10px 0 0; }
+  .grade-form { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 14px; margin-top: 14px; }
+  .grade-form .largo { grid-column: span 2; }
+  .conta { display: grid; grid-template-columns: 1fr auto; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--fio); align-items: start; }
+  .conta h3 { margin: 0; font-size: 16px; font-weight: 500; }
+  .conta p { margin: 2px 0 0; color: var(--suave); font-size: 14px; }
+  .conta .acoes { margin-top: 0; justify-content: flex-end; }
+  .codigo-par { font: 600 28px/1.2 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .12em; color: var(--acento); margin-top: 6px; }
+  .ok { color: var(--verde); }
+  .resultado-busca mark { background: var(--acento-fundo); color: inherit; }
+
   @media (max-width: 820px) {
     .topo-dentro { gap: 16px; padding: 0 16px; }
     nav { gap: 14px; }
@@ -113,26 +142,40 @@
     .ficha { grid-template-columns: 1fr; padding-left: 4px; }
     .espaco-linha { grid-template-columns: 1fr 1fr; }
     .filtros input { width: 100%; }
+    .topo-dentro { flex-wrap: wrap; height: auto; padding-top: 10px; gap: 8px 16px; }
+    .topo-dentro nav { order: 3; width: 100%; height: 42px; overflow-x: auto; scrollbar-width: none; }
+    .topo-dentro nav button { flex: none; }
+    #quando { display: none; }
+    .busca-topo { width: 130px; }
+    .grade-form { grid-template-columns: 1fr 1fr; }
+    .conta { grid-template-columns: 1fr; }
+    .conta .acoes { justify-content: flex-start; }
   }
 </style>
 </head>
 <body>
-<header class="topo"><div class="topo-dentro">
+<header class="topo" id="topo" hidden><div class="topo-dentro">
   <div class="marca">Central</div>
   <nav>
     <button data-aba="hoje" class="ativo">Hoje</button>
+    <button data-aba="caixa">Caixa</button>
     <button data-aba="tarefas">Tarefas</button>
     <button data-aba="pessoas">Pessoas</button>
     <button data-aba="espacos">Espaços</button>
+    <button data-aba="conexoes">Conexões</button>
   </nav>
-  <div class="estado"><span id="quando"></span><button class="btn" id="atualizar">Atualizar</button></div>
+  <div class="estado"><input class="busca-topo" id="busca-topo" type="search" placeholder="Buscar em tudo" aria-label="Buscar em tudo"><span id="quando"></span><button class="btn" id="atualizar">Atualizar</button><button class="btn" id="sair">Sair</button></div>
 </div></header>
 
 <main>
-  <section id="aba-hoje"></section>
+  <section id="entrada" hidden></section>
+  <section id="aba-hoje" hidden></section>
+  <section id="aba-caixa" hidden></section>
   <section id="aba-tarefas" hidden></section>
   <section id="aba-pessoas" hidden></section>
   <section id="aba-espacos" hidden></section>
+  <section id="aba-conexoes" hidden></section>
+  <section id="aba-busca" hidden></section>
 </main>
 
 <script>
@@ -149,13 +192,18 @@ const TIPOS_CANAL = { email: 'E-mail', whatsapp: 'WhatsApp', telefone: 'Telefone
 // 5562999990000 -> +55 62 99999-0000 (só para mostrar; o banco guarda os dígitos).
 const fone = (d) => { const m = String(d).match(/^55(\d{2})(\d{4,5})(\d{4})$/); return m ? `+55 ${m[1]} ${m[2]}-${m[3]}` : d; };
 
-const D = { hoje: null, espacos: [], todosEspacos: [], tarefas: null, pessoas: null, vocab: { status: [] }, erro: null };
-const UI = { aba: 'hoje', espaco: 'todos', filtro: 'abertas', busca: '', ficha: null, pessoa: null, msg: null };
+const D = { hoje: null, espacos: [], todosEspacos: [], tarefas: null, pessoas: null, conversas: null, conversa: null,
+  contas: null, tokens: null, sessoes: null, conectores: null, busca: null, vocab: { status: [], estados: [] }, erro: null };
+const UI = { aba: 'hoje', espaco: 'todos', filtro: 'abertas', estado: 'responder', busca: '', buscaTudo: '', ficha: null, pessoa: null,
+  conversa: null, novaPessoa: null, msg: null, tokenNovo: null };
+const NOME_ESTADO = { responder: 'Responder', esperando: 'Esperando', resolvida: 'Resolvidas', arquivada: 'Arquivadas' };
+const ABAS = ['hoje', 'caixa', 'tarefas', 'pessoas', 'espacos', 'conexoes', 'busca'];
 
 async function api(metodo, caminho, corpo) {
   const r = await fetch(caminho, { method: metodo, headers: corpo ? { 'Content-Type': 'application/json', 'X-Central': '1' } : { 'X-Central': '1' },
-    body: corpo ? JSON.stringify(corpo) : undefined });
+    body: corpo ? JSON.stringify(corpo) : undefined, credentials: 'same-origin' });
   const j = await r.json().catch(() => ({}));
+  if (r.status === 401 && !caminho.startsWith('/api/entrar') && !caminho.startsWith('/api/convite')) { mostrarEntrada(); throw new Error('sessão encerrada'); }
   if (!r.ok) throw new Error(j.erro || `HTTP ${r.status}`);
   return j;
 }
@@ -173,6 +221,8 @@ function ir(aba) {
 }
 document.querySelectorAll('nav button').forEach((b) => b.onclick = () => ir(b.dataset.aba));
 $('#atualizar').onclick = () => carregarTudo(true);
+$('#sair').onclick = async () => { try { await api('POST', '/api/sair', {}); } catch {} mostrarEntrada(); };
+$('#busca-topo').onkeydown = (e) => { if (e.key === 'Enter' && e.target.value.trim()) { UI.buscaTudo = e.target.value.trim(); ir('busca'); } };
 
 async function carregarTudo(forcar) {
   try {
@@ -186,6 +236,14 @@ async function carregarAba(forcar) {
     if (UI.aba === 'hoje') { $('#quando').textContent = 'atualizando…'; D.hoje = await api('GET', '/api/hoje' + (forcar ? '?forcar' : '')); }
     if (UI.aba === 'tarefas' || UI.aba === 'hoje') D.tarefas = await api('GET', `/api/tarefas?${qs}${UI.filtro === 'todas' ? '&todas' : ''}`);
     if (UI.aba === 'pessoas' || UI.aba === 'tarefas') D.pessoas = await api('GET', `/api/pessoas?${qs}${UI.busca ? '&q=' + encodeURIComponent(UI.busca) : ''}`);
+    if (UI.aba === 'caixa') {
+      D.conversas = await api('GET', `/api/conversas?${qs}&estado=${UI.estado}`);
+      D.conversa = UI.conversa ? await api('GET', `/api/conversas/${UI.conversa}`).catch(() => null) : null;
+    }
+    if (UI.aba === 'conexoes') {
+      [D.contas, D.tokens, D.sessoes, D.conectores] = await Promise.all([api('GET', '/api/contas'), api('GET', '/api/tokens'), api('GET', '/api/sessoes'), api('GET', '/api/conectores')]);
+    }
+    if (UI.aba === 'busca') D.busca = await api('GET', `/api/busca?q=${encodeURIComponent(UI.buscaTudo)}`);
     D.erro = null;
   } catch (e) { D.erro = e.message; }
   $('#quando').textContent = D.hoje ? `às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : '';
@@ -253,7 +311,7 @@ async function salvarPessoa(fx) {
   };
   try {
     const p = fx.dataset.id ? await api('PUT', `/api/pessoas/${fx.dataset.id}`, dados) : await api('POST', '/api/pessoas', dados);
-    UI.pessoa = String(p.id); UI.msg = { ok: 'Salvo' };
+    UI.pessoa = String(p.id); UI.novaPessoa = null; UI.msg = { ok: 'Salvo' };
   } catch (er) { UI.msg = { erro: er.message }; }
   carregarAba();
 }
@@ -268,7 +326,8 @@ async function salvarEspaco(l) {
 
 // ---------- Desenho ----------
 function desenhar() {
-  ({ hoje: desenharHoje, tarefas: desenharTarefas, pessoas: desenharPessoas, espacos: desenharEspacos })[UI.aba]();
+  ({ hoje: desenharHoje, caixa: desenharCaixa, tarefas: desenharTarefas, pessoas: desenharPessoas, espacos: desenharEspacos,
+    conexoes: desenharConexoes, busca: desenharBusca })[UI.aba]();
 }
 const mensagem = () => UI.msg ? `<span class="salvo ${UI.msg.erro ? 'erro' : ''}">${esc(UI.msg.erro ? 'Não salvou: ' + UI.msg.erro : UI.msg.ok)}</span>` : '';
 const falha = () => D.erro ? `<div class="falhou">Erro: ${esc(D.erro)}</div>` : '';
@@ -292,21 +351,23 @@ function desenharHoje() {
   const h = D.hoje;
   const data = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Sao_Paulo' });
   if (!h) { $('#aba-hoje').innerHTML = falha() || '<div class="carregando">Montando o seu dia…</div>'; return; }
-  const contar = (e) => e.vencidas.length + e.deHoje.length + e.fontes.reduce((a, f) => a + f.itens.filter((i) => i.urgente).length, 0);
+  const contar = (e) => e.vencidas.length + e.deHoje.length + (e.conversas.responder ? 1 : 0) + e.fontes.reduce((a, f) => a + f.itens.filter((i) => i.urgente).length, 0);
   const urgentes = h.espacos.reduce((a, e) => a + contar(e), 0);
   const blocos = h.espacos.map((e) => {
     const linhas = [];
     for (const t of e.vencidas) linhas.push({ urgente: true, titulo: t.titulo, desc: `Venceu ${dataCurta(t.proxima)}${t.pessoa_nome ? ' · ' + t.pessoa_nome : ''} · ${NOME_STATUS[t.status]}`, tarefa: t.id });
     for (const t of e.deHoje) linhas.push({ titulo: t.titulo, desc: `Hoje${t.pessoa_nome ? ' · ' + t.pessoa_nome : ''} · ${NOME_STATUS[t.status]}`, tarefa: t.id });
+    if (e.conversas.responder) linhas.push({ urgente: e.conversas.responder > 0, titulo: `${plural(e.conversas.responder, 'conversa pede', 'conversas pedem')} resposta`,
+      desc: e.conversas.primeiras.slice(0, 3).map((c) => `${c.pessoa_nome || c.titulo} (${quando(c.ultima_em)})`).join(' · '), qtd: e.conversas.responder, caixa: e.espaco.id });
     for (const f of e.fontes) {
       for (const i of [...f.itens].sort((a, b) => b.urgente - a.urgente)) linhas.push({ ...i, fonte: f.nome });
     }
     const erros = e.fontes.filter((f) => f.erro).map((f) => `<div class="falhou">${esc(f.nome)}: ${esc(f.erro)}${f.em ? ' · mostrando a leitura anterior' : ''}</div>`).join('');
     return `<div class="rotulo"><span>${marcaEspaco(e.espaco.id)}</span><small>${plural(e.abertas, 'tarefa aberta', 'tarefas abertas')}</small></div>
-      ${linhas.map((l, i) => `<div class="linha${l.urgente ? ' urgente' : ''}${l.tarefa ? ' clicavel' : ''}" ${l.tarefa ? `data-tarefa-hoje="${l.tarefa}"` : ''}>
+      ${linhas.map((l, i) => `<div class="linha${l.urgente ? ' urgente' : ''}${l.tarefa || l.caixa ? ' clicavel' : ''}" ${l.tarefa ? `data-tarefa-hoje="${l.tarefa}"` : ''}${l.caixa ? ` data-caixa-hoje="${esc(l.caixa)}"` : ''}>
         <div class="ord">${dd(i)}</div>
         <div><h3>${esc(l.titulo)}</h3><p>${esc(l.desc || '')}${l.fonte ? `${l.desc ? ' · ' : ''}${esc(l.fonte)}` : ''}</p></div>
-        <div class="lado">${l.qtd != null ? `<span class="qtd">${l.qtd}</span><br>` : ''}${l.link ? `<a href="${esc(l.link)}" target="_blank" rel="noopener">abrir →</a>` : l.tarefa ? '<span class="sec">tarefa</span>' : ''}</div>
+        <div class="lado">${l.qtd != null ? `<span class="qtd">${l.qtd}</span><br>` : ''}${l.link ? `<a href="${esc(l.link)}" target="_blank" rel="noopener noreferrer">abrir →</a>` : l.tarefa ? '<span class="sec">tarefa</span>' : l.caixa ? '<span class="sec">caixa</span>' : ''}</div>
       </div>`).join('') || (erros ? '' : '<div class="vazio">Nada pedindo ação.</div>')}${erros}`;
   }).join('');
   $('#aba-hoje').innerHTML = `
@@ -314,11 +375,13 @@ function desenharHoje() {
       <p>${data[0].toUpperCase() + data.slice(1)}. ${urgentes ? `${plural(urgentes, 'coisa venceu ou é', 'coisas venceram ou são')} para hoje, somando todos os espaços.` : 'Nada vencido em nenhum espaço.'}</p></div>
     ${formNova()}
     ${falha()}${blocos}
-    <p class="rodape">Cada espaço é separado: tarefas, pessoas e fontes de um não aparecem no outro. As fontes externas só são lidas.</p>`;
+    <p class="rodape">Cada espaço é separado: tarefas, pessoas, conversas e fontes de um não aparecem no outro. E-mail, WhatsApp e painéis só são lidos: nada sai daqui.</p>`;
 }
 document.addEventListener('click', (e) => {
   const t = e.target.closest('[data-tarefa-hoje]');
   if (t && !e.target.closest('a')) { UI.espaco = 'todos'; UI.filtro = 'abertas'; ir('tarefas'); UI.ficha = t.dataset.tarefaHoje; }
+  const c = e.target.closest('[data-caixa-hoje]');
+  if (c) { UI.espaco = c.dataset.caixaHoje; UI.estado = 'responder'; UI.conversa = null; ir('caixa'); }
 });
 
 function seletorEspacos(contagem) {
@@ -403,7 +466,7 @@ function desenharPessoas() {
     <div class="filtros"><input name="busca" placeholder="Buscar por nome, e-mail ou número" value="${esc(UI.busca)}"><button class="btn" data-nova-pessoa>Nova pessoa</button></div>
     ${falha()}
     <div style="margin-top:18px;border-top:1px solid var(--tinta)">
-    ${UI.pessoa === 'nova' ? fichaPessoa({ nome: '', notas: '', espacos: UI.espaco === 'todos' ? [] : [{ id: UI.espaco }], canais: [] }) : ''}
+    ${UI.pessoa === 'nova' ? fichaPessoa(UI.novaPessoa || { nome: '', notas: '', espacos: UI.espaco === 'todos' ? [] : [{ id: UI.espaco }], canais: [] }) : ''}
     ${ps.map((p) => `<div class="linha clicavel${UI.pessoa === String(p.id) ? ' aberta' : ''}" data-pessoa="${p.id}">
         <div class="ord">#${p.id}</div>
         <div><h3>${esc(p.nome)}</h3><p>${p.canais.map((c) => `${TIPOS_CANAL[c.tipo]} ${esc(c.tipo === 'email' || c.tipo === 'outro' ? c.valor : fone(c.valor))}`).join(' · ') || 'sem canal'}</p></div>
@@ -452,14 +515,301 @@ function desenharEspacos() {
     <p class="rodape">As fontes de cada espaço (painéis, e-mail, WhatsApp) ficam em config/local.json, fora do git.</p>`;
 }
 
-// Abre na aba do #hash, mas só depois de ler os espaços.
-if (['#tarefas', '#pessoas', '#espacos'].includes(location.hash)) {
-  UI.aba = location.hash.slice(1);
+// ---------- Caixa ----------
+function desenharCaixa() {
+  const cs = D.conversas;
+  if (!cs) { $('#aba-caixa').innerHTML = falha() || '<div class="carregando">Carregando…</div>'; return; }
+  $('#aba-caixa').innerHTML = `
+    <div class="cabeca"><h1>${plural(cs.length, 'conversa', 'conversas')} ${UI.estado === 'responder' ? 'pedindo resposta' : 'em ' + NOME_ESTADO[UI.estado].toLowerCase()}${UI.espaco === 'todos' ? '' : ' em ' + esc(espacoPor(UI.espaco).nome)}</h1>
+      <p>E-mail e WhatsApp de cada espaço. Mudar o estado ou anotar aqui não mexe na caixa de verdade, e nada é enviado daqui.</p></div>
+    ${seletorEspacos((id) => id === UI.espaco ? cs.length : null)}
+    <div class="filtros">${D.vocab.estados.map((e) => `<button data-estado="${e}" class="${UI.estado === e ? 'ativo' : ''}">${NOME_ESTADO[e]}</button>`).join('')}</div>
+    ${falha()}
+    <div style="margin-top:18px;border-top:1px solid var(--tinta)">
+    ${cs.map((c) => `<div class="linha clicavel${String(UI.conversa) === String(c.id) ? ' aberta' : ''}" data-conversa="${c.id}">
+        <div class="ord">${c.canal === 'email' ? '@' : 'wa'}</div>
+        <div><h3>${esc(c.pessoa_nome || (c.canal === 'whatsapp' ? (c.titulo || fone(c.endereco)) : c.titulo))}</h3>
+          <p>${c.canal === 'email' && c.pessoa_nome ? esc(c.titulo) + ' · ' : ''}${c.ultima ? `${c.ultima.de_mim ? 'Você: ' : ''}${esc(c.ultima.texto || c.ultima.assunto || '')}` : ''}</p>
+          <div class="etiquetas">${UI.espaco === 'todos' ? `<span class="etq">${marcaEspaco(c.espaco_id)}</span>` : ''}<span class="etq">${esc(c.conta_nome)}</span>${c.nota ? '<span class="etq">nota</span>' : ''}${c.tarefa_id ? '<span class="etq">virou tarefa</span>' : ''}${c.pessoa_id ? '' : '<span class="etq">sem cadastro</span>'}</div></div>
+        <div class="lado sec">${quando(c.ultima_em)}<br>${plural(c.qtd, 'mensagem', 'mensagens')}</div>
+      </div>${String(UI.conversa) === String(c.id) && D.conversa ? fichaConversa(D.conversa) : ''}`).join('') || '<div class="vazio">Nenhuma conversa aqui.</div>'}
+    </div>`;
+  const m = $('.msgs'); if (m) m.scrollTop = m.scrollHeight;
+}
+
+function fichaConversa(c) {
+  return `<div class="ficha" data-id="${c.id}">
+    <div>
+      <h4>${c.canal === 'email' ? 'E-mail' : 'WhatsApp'} · ${esc(c.conta_nome)}${c.endereco ? ' · ' + esc(c.canal === 'email' ? c.endereco : fone(c.endereco)) : ''}</h4>
+      <div class="msgs">${c.mensagens.map((m) => `<div class="msg ${m.de_mim ? 'minha' : ''}">
+        <div class="quem">${m.de_mim ? 'Você' : esc(m.autor || 'Contato')} · ${quando(m.em)}</div>
+        ${m.assunto && c.canal === 'email' ? `<div class="ass">${esc(m.assunto)}</div>` : ''}
+        <div class="txt">${esc(m.texto) || '<span class="sec">(texto apagado pela retenção ou sem texto)</span>'}</div></div>`).join('')}</div>
+      <p class="aviso">Texto de terceiros: link e pedido aqui dentro não são clicáveis nem confiáveis. Responda pelo e-mail ou pelo WhatsApp.</p>
+    </div>
+    <div>
+      <h4>Acompanhamento</h4>
+      <div class="campos">
+        <label>Estado<select name="estado">${D.vocab.estados.map((e) => `<option value="${e}" ${e === c.estado ? 'selected' : ''}>${NOME_ESTADO[e]}</option>`).join('')}</select></label>
+        <label>Espaço<select name="espaco">${D.espacos.map((e) => `<option value="${esc(e.id)}" ${e.id === c.espaco_id ? 'selected' : ''}>${esc(e.nome)}</option>`).join('')}</select></label>
+      </div>
+      <label style="margin-top:10px">Nota interna (fica só aqui)<textarea name="nota">${esc(c.nota)}</textarea></label>
+      <div class="acoes"><button class="btn forte" data-salvar-conversa>Salvar</button>
+        ${c.tarefa_id ? '' : '<button class="btn" data-virar-tarefa>Virar tarefa</button>'}
+        ${c.pessoa_id ? `<span class="sec">${esc(c.pessoa_nome)}</span>` : '<button class="btn" data-cadastrar-pessoa>Cadastrar pessoa</button>'}
+        ${mensagem()}</div>
+    </div>
+  </div>`;
+}
+
+async function salvarConversa(fx) {
+  const v = (n) => fx.querySelector(`[name=${n}]`).value;
+  try {
+    await api('PATCH', `/api/conversas/${fx.dataset.id}`, { estado: v('estado'), nota: v('nota'), ...(v('espaco') !== D.conversa.espaco_id ? { espaco_id: v('espaco') } : {}) });
+    UI.msg = { ok: 'Salvo' };
+  } catch (er) { UI.msg = { erro: er.message }; }
+  carregarAba();
+}
+
+// ---------- Conexões ----------
+const ESTADO_WA = (c) => {
+  const e = c.estado || {};
+  const visto = e.visto ? Date.now() - Date.parse(e.visto) < 2 * 60e3 : false;
+  if (e.restricao) return `<span class="velho">${esc(e.restricao)}</span>`;
+  if (!visto) return '<span class="velho">o processo do WhatsApp não está rodando</span>';
+  if (e.conectado) return `<span class="ok">conectado</span>${c.endereco ? ' · ' + esc(fone(c.endereco)) : ''}`;
+  return e.erro ? `<span class="morno">${esc(e.erro)}</span>` : '<span class="morno">desconectado</span>';
+};
+
+function desenharConexoes() {
+  if (!D.contas) { $('#aba-conexoes').innerHTML = falha() || '<div class="carregando">Carregando…</div>'; return; }
+  const emails = D.contas.filter((c) => c.tipo === 'email');
+  const was = D.contas.filter((c) => c.tipo === 'whatsapp');
+  const opcoesEspaco = (sel) => D.espacos.map((e) => `<option value="${esc(e.id)}" ${e.id === sel ? 'selected' : ''}>${esc(e.nome)}</option>`).join('');
+  const tokenDe = (escopo) => D.tokens.find((t) => t.escopo === escopo && !t.revogado);
+  $('#aba-conexoes').innerHTML = `
+    <div class="cabeca"><h1>Conexões</h1><p>Contas de e-mail e WhatsApp, os painéis que mandam resumo e quem está com a Central aberta. Tudo aqui é só leitura: a Central não envia nada.</p></div>
+    ${falha()}${UI.tokenNovo ? `<div class="rotulo">Token novo<small>aparece só agora</small></div>
+      <p class="sec">Copie para o lugar onde ele vai ser usado (${esc(UI.tokenNovo.registro.escopo)}). Ele não fica guardado em lugar nenhum legível.</p>
+      <div class="segredo">${esc(UI.tokenNovo.token)}</div>` : ''}
+
+    <div class="rotulo">E-mail<small>IMAP com TLS, pasta aberta só para leitura</small></div>
+    ${emails.map((c) => `<div class="conta"><div><h3>${esc(c.nome)} <span class="sec">${esc(c.endereco)}</span></h3>
+        <p>${marcaEspaco(c.espaco_id)} · ${esc(c.config.host)} · ${esc(c.config.pasta)} · ${c.erro ? `<span class="velho">${esc(c.erro)}</span>` : c.lida_em ? `lida ${quando(c.lida_em)}` : 'ainda não lida'}${c.ativa ? '' : ' · <span class="morno">pausada</span>'}</p></div>
+      <div class="acoes"><button class="btn" data-ler-conta="${esc(c.id)}">Ler agora</button><button class="btn perigo" data-apagar-conta="${esc(c.id)}">Apagar</button></div></div>`).join('') || '<div class="vazio">Nenhuma caixa ligada.</div>'}
+    <form class="grade-form" data-form-email>
+      <label>Id<input name="id" placeholder="ex.: gmail" required pattern="[a-z0-9][a-z0-9-]{1,29}"></label>
+      <label>Nome<input name="nome" placeholder="Gmail pessoal" required maxlength="60"></label>
+      <label>Espaço<select name="espaco_id">${opcoesEspaco(UI.espaco !== 'todos' ? UI.espaco : D.espacos[0]?.id)}</select></label>
+      <label>Servidor IMAP<input name="host" placeholder="imap.gmail.com" required></label>
+      <label class="largo">Usuário (e-mail)<input name="usuario" type="email" required autocomplete="off"></label>
+      <label>Senha de app<input name="senha" type="password" required autocomplete="new-password"></label>
+      <label>Pasta<input name="pasta" value="INBOX"></label>
+      <div class="acoes largo"><button class="btn forte">Ligar caixa</button><span class="sec">No Gmail: senha de app (Conta Google → Segurança → Senhas de app). A senha vai cifrada e não volta para a tela.</span></div>
+    </form>
+
+    <div class="rotulo">WhatsApp<small>aparelho vinculado, só leitura</small></div>
+    ${was.map((c) => { const t = tokenDe('whatsapp:' + c.id); return `<div class="conta"><div><h3>${esc(c.nome)}</h3>
+        <p>${marcaEspaco(c.espaco_id)} · ${ESTADO_WA(c)}${t ? '' : ' · <span class="morno">falta o token do processo</span>'}</p>
+        ${c.estado?.codigo ? `<p>No celular: WhatsApp → Aparelhos conectados → Conectar aparelho → <b>Conectar com número de telefone</b> e digite:</p><div class="codigo-par">${esc(c.estado.codigo)}</div>` : ''}</div>
+      <div class="acoes">${c.estado?.conectado ? `<button class="btn perigo" data-wa-desligar="${esc(c.id)}">Desligar</button>`
+        : `<input name="numero" placeholder="5562999990000" style="width:160px" aria-label="Número"><button class="btn" data-wa-parear="${esc(c.id)}">Parear</button>`}
+        ${t ? '' : `<button class="btn" data-token="whatsapp:${esc(c.id)}" data-token-nome="WhatsApp ${esc(c.nome)}">Gerar token</button>`}<button class="btn perigo" data-apagar-conta="${esc(c.id)}">Apagar</button></div></div>`; }).join('') || '<div class="vazio">Nenhum número ligado.</div>'}
+    <form class="grade-form" data-form-wa>
+      <label>Id<input name="id" placeholder="ex.: meu-whats" required pattern="[a-z0-9][a-z0-9-]{1,29}"></label>
+      <label>Nome<input name="nome" placeholder="Meu WhatsApp" required maxlength="60"></label>
+      <label>Espaço padrão<select name="espaco_id">${opcoesEspaco(D.espacos[0]?.id)}</select></label>
+      <div class="acoes"><button class="btn forte">Ligar número</button></div>
+    </form>
+    <p class="aviso">Conversa vai para o espaço da pessoa cadastrada com aquele número; quem não está cadastrado cai no espaço padrão. Grupos ficam de fora. Use um número seu, não o da loja: WhatsApp não oficial pode ser restringido.</p>
+
+    <div class="rotulo">Painéis que mandam resumo</div>
+    ${D.conectores.map((c) => { const t = tokenDe('fonte:' + c.id); return `<div class="conta"><div><h3>${esc(c.nome)}</h3><p>${marcaEspaco(c.espaco)} · ${c.tipo === 'resumo-push' ? (t ? `token #${t.id}${t.usado ? ', último envio ' + quando(t.usado) : ', ainda não usado'}` : 'sem token') : 'lido pela Central (endereço local)'}</p></div>
+      <div class="acoes">${c.tipo === 'resumo-push' && !t ? `<button class="btn" data-token="fonte:${esc(c.id)}" data-token-nome="${esc(c.nome)}">Gerar token</button>` : ''}</div></div>`; }).join('') || '<div class="vazio">Nenhum painel em config/local.json.</div>'}
+
+    <div class="rotulo">Tokens<small>${plural(D.tokens.filter((t) => !t.revogado).length, 'ativo', 'ativos')}</small></div>
+    ${D.tokens.map((t) => `<div class="conta"><div><h3>${esc(t.nome)} <span class="sec mono">#${t.id} ${esc(t.escopo)}</span></h3>
+        <p>criado ${quando(t.criado)}${t.usado ? ' · usado ' + quando(t.usado) : ''}${t.revogado ? ' · <span class="velho">revogado</span>' : ''}</p></div>
+      <div class="acoes">${t.revogado ? '' : `<button class="btn perigo" data-revogar="${t.id}">Revogar</button>`}</div></div>`).join('')}
+    <div class="acoes"><button class="btn" data-token="leitura" data-token-nome="MCP (assistente)">Gerar token de leitura para o MCP</button></div>
+
+    <div class="rotulo">Sessões abertas<small>${plural(D.sessoes.length, 'sessão', 'sessões')}</small></div>
+    ${D.sessoes.map((x) => `<div class="conta"><div><h3 class="mono">${esc(x.ip || 'local')}</h3><p>${esc(x.agente.slice(0, 90))} · entrou ${quando(x.criado)} · visto ${quando(x.visto)}</p></div><div></div></div>`).join('')}
+    <div class="acoes"><button class="btn perigo" data-sair-todas>Sair de todas (inclusive esta)</button>${mensagem()}</div>`;
+}
+
+// ---------- Busca ----------
+function desenharBusca() {
+  const b = D.busca;
+  if (!b) { $('#aba-busca').innerHTML = falha() || '<div class="carregando">Buscando…</div>'; return; }
+  const marcar = (t) => esc(t).replace(/\u0002/g, '<mark>').replace(/\u0003/g, '</mark>');
+  const total = b.conversas.length + b.tarefas.length + b.pessoas.length;
+  $('#aba-busca').innerHTML = `
+    <div class="cabeca"><h1>${plural(total, 'resultado', 'resultados')} para “${esc(UI.buscaTudo)}”</h1><p>Mensagens, tarefas e pessoas, em todos os espaços.</p></div>
+    ${falha()}
+    <div class="resultado-busca">
+    ${b.conversas.length ? `<div class="rotulo">Mensagens<small>${b.conversas.length}</small></div>${b.conversas.map((c) => `<div class="linha clicavel" data-ir-conversa="${c.id}" data-espaco-conversa="${esc(c.espaco_id)}" data-estado-conversa="${esc(c.estado)}">
+      <div class="ord">${c.canal === 'email' ? '@' : 'wa'}</div><div><h3>${esc(c.pessoa_nome || c.titulo)}</h3><p>${marcar(c.trecho)}</p></div><div class="lado sec">${marcaEspaco(c.espaco_id)}<br>${quando(c.em)}</div></div>`).join('')}` : ''}
+    ${b.tarefas.length ? `<div class="rotulo">Tarefas<small>${b.tarefas.length}</small></div>${b.tarefas.map((t) => `<div class="linha clicavel" data-tarefa-hoje="${t.id}">
+      <div class="ord"></div><div><h3>${esc(t.titulo)}</h3><p>${NOME_STATUS[t.status]}${t.proxima ? ' · ' + dataCurta(t.proxima) : ''}</p></div><div class="lado sec">${marcaEspaco(t.espaco_id)}</div></div>`).join('')}` : ''}
+    ${b.pessoas.length ? `<div class="rotulo">Pessoas<small>${b.pessoas.length}</small></div>${b.pessoas.map((p) => `<div class="linha clicavel" data-ir-pessoa="${p.id}"><div class="ord">#${p.id}</div><div><h3>${esc(p.nome)}</h3></div><div></div></div>`).join('')}` : ''}
+    ${total ? '' : '<div class="vazio">Nada encontrado.</div>'}
+    </div>`;
+}
+
+// ---------- Ações da caixa, conexões e busca ----------
+document.addEventListener('click', async (e) => {
+  const alvo = (s) => e.target.closest(s);
+  if (alvo('[data-estado]')) { UI.estado = alvo('[data-estado]').dataset.estado; UI.conversa = null; return carregarAba(); }
+  if (alvo('[data-salvar-conversa]')) return salvarConversa(alvo('.ficha'));
+  if (alvo('[data-virar-tarefa]')) {
+    try { const t = await api('POST', `/api/conversas/${alvo('.ficha').dataset.id}/tarefa`, {}); UI.msg = { ok: `Tarefa #${t.id} criada` }; } catch (er) { UI.msg = { erro: er.message }; }
+    return carregarAba();
+  }
+  if (alvo('[data-cadastrar-pessoa]')) {
+    const c = D.conversa;
+    UI.novaPessoa = { nome: c.canal === 'email' ? (c.mensagens.find((m) => !m.de_mim)?.autor || '') : (c.titulo || ''), notas: '',
+      espacos: [{ id: c.espaco_id }], canais: c.endereco ? [{ tipo: c.canal === 'email' ? 'email' : 'whatsapp', valor: c.endereco }] : [] };
+    UI.espaco = 'todos'; UI.busca = ''; ir('pessoas'); UI.pessoa = 'nova'; return;
+  }
+  const conv = alvo('[data-conversa]');
+  if (conv && !alvo('.ficha')) { UI.conversa = String(UI.conversa) === conv.dataset.conversa ? null : conv.dataset.conversa; UI.msg = null; return carregarAba(); }
+  const irConv = alvo('[data-ir-conversa]');
+  if (irConv) { UI.espaco = irConv.dataset.espacoConversa; UI.estado = irConv.dataset.estadoConversa; ir('caixa'); UI.conversa = irConv.dataset.irConversa; return carregarAba(); }
+  const irP = alvo('[data-ir-pessoa]');
+  if (irP) { UI.espaco = 'todos'; UI.busca = ''; ir('pessoas'); UI.pessoa = irP.dataset.irPessoa; return; }
+
+  const acao = async (fn, ok) => { try { await fn(); UI.msg = { ok }; } catch (er) { UI.msg = { erro: er.message }; } carregarAba(); };
+  if (alvo('[data-ler-conta]')) { UI.msg = { ok: 'Lendo…' }; desenhar(); return acao(async () => { const r = await api('POST', `/api/contas/${alvo('[data-ler-conta]').dataset.lerConta}/ler`, {}); UI.msg = null; return r; }, 'Caixa lida'); }
+  if (alvo('[data-apagar-conta]')) {
+    if (!confirm('Apagar esta conta e todas as conversas dela na Central? A caixa de verdade não muda.')) return;
+    return acao(() => api('DELETE', `/api/contas/${alvo('[data-apagar-conta]').dataset.apagarConta}`), 'Conta apagada');
+  }
+  if (alvo('[data-wa-parear]')) {
+    const id = alvo('[data-wa-parear]').dataset.waParear;
+    const numero = alvo('.conta').querySelector('[name=numero]').value;
+    return acao(() => api('POST', `/api/contas/${id}/whatsapp`, { acao: 'parear', numero }), 'Pedido enviado: o código aparece aqui em alguns segundos');
+  }
+  if (alvo('[data-wa-desligar]')) {
+    if (!confirm('Desligar este WhatsApp da Central? O aparelho sai da lista de conectados.')) return;
+    return acao(() => api('POST', `/api/contas/${alvo('[data-wa-desligar]').dataset.waDesligar}/whatsapp`, { acao: 'desligar' }), 'Pedido de desligar enviado');
+  }
+  if (alvo('[data-token]')) {
+    const b = alvo('[data-token]');
+    try { UI.tokenNovo = await api('POST', '/api/tokens', { nome: b.dataset.tokenNome, escopo: b.dataset.token }); UI.msg = null; } catch (er) { UI.msg = { erro: er.message }; }
+    await carregarAba(); scrollTo({ top: 0 }); return;
+  }
+  if (alvo('[data-revogar]')) {
+    if (!confirm('Revogar este token? Quem usa ele para de funcionar na hora.')) return;
+    return acao(() => api('DELETE', `/api/tokens/${alvo('[data-revogar]').dataset.revogar}`), 'Token revogado');
+  }
+  if (alvo('[data-sair-todas]')) {
+    if (!confirm('Encerrar todas as sessões, inclusive esta?')) return;
+    try { await api('POST', '/api/sessoes/sair-de-todas', {}); } catch {}
+    return mostrarEntrada();
+  }
+});
+document.addEventListener('submit', async (e) => {
+  const f = e.target;
+  if (!f.matches('[data-form-email], [data-form-wa]')) return;
+  e.preventDefault();
+  const d = Object.fromEntries(new FormData(f));
+  try {
+    await api('POST', '/api/contas', { ...d, tipo: f.matches('[data-form-email]') ? 'email' : 'whatsapp' });
+    UI.msg = { ok: 'Conta ligada' }; f.reset();
+  } catch (er) { UI.msg = { erro: er.message }; }
+  carregarAba();
+});
+
+// ---------- Entrar e primeiro acesso ----------
+function mostrarTela(app) {
+  $('#topo').hidden = !app;
+  $('#entrada').hidden = app;
+  if (!app) document.querySelectorAll('main > section:not(#entrada)').forEach((s) => s.hidden = true);
+}
+
+function mostrarEntrada(erro) {
+  mostrarTela(false);
+  D.hoje = null;
+  $('#entrada').innerHTML = `<form class="entrada" data-entrar>
+    <h1>Central</h1><p>Entre com a sua senha e o código do autenticador.</p>
+    <label>Senha<input name="senha" type="password" autocomplete="current-password" required autofocus></label>
+    <label>Código do autenticador<input name="codigo" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
+    <button class="btn forte">Entrar</button>
+    ${erro ? `<p class="salvo erro" style="margin-top:14px">${esc(erro)}</p>` : ''}
+  </form>`;
+}
+
+function mostrarConvite(convite, passo = 1, dados = {}, erro) {
+  mostrarTela(false);
+  $('#entrada').innerHTML = passo === 1 ? `<form class="entrada" data-convite-1>
+      <h1>Primeiro acesso</h1><p>Escolha a senha da Central. Ela fica só com você: nem quem criou o convite vê.</p>
+      <label>Senha (12 caracteres ou mais)<input name="senha" type="password" autocomplete="new-password" minlength="12" required autofocus></label>
+      <label>Repita a senha<input name="senha2" type="password" autocomplete="new-password" minlength="12" required></label>
+      <button class="btn forte">Continuar</button>
+      ${erro ? `<p class="salvo erro" style="margin-top:14px">${esc(erro)}</p>` : ''}
+    </form>` : `<form class="entrada" data-convite-2>
+      <h1>Autenticador</h1><p>No Google Authenticator, Aegis ou 1Password, adicione uma conta pela <b>chave de configuração</b>:</p>
+      <div class="segredo">${esc(dados.segredo.match(/.{1,4}/g).join(' '))}</div>
+      <div class="uri">${esc(dados.uri)}</div>
+      <label>Código de 6 dígitos que o app mostra<input name="codigo" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required autofocus></label>
+      <button class="btn forte">Ativar</button>
+      ${erro ? `<p class="salvo erro" style="margin-top:14px">${esc(erro)}</p>` : ''}
+    </form>`;
+  $('#entrada').dataset.convite = convite;
+  UI.conviteDados = dados;
+}
+
+document.addEventListener('submit', async (e) => {
+  const f = e.target;
+  const d = Object.fromEntries(new FormData(f));
+  if (f.matches('[data-entrar]')) {
+    e.preventDefault();
+    try { await api('POST', '/api/entrar', { senha: d.senha, codigo: d.codigo }); iniciarApp(); } catch (er) { mostrarEntrada(er.message); }
+  }
+  if (f.matches('[data-convite-1]')) {
+    e.preventDefault();
+    const convite = $('#entrada').dataset.convite;
+    if (d.senha !== d.senha2) return mostrarConvite(convite, 1, {}, 'As duas senhas não são iguais.');
+    try { mostrarConvite(convite, 2, await api('POST', '/api/convite/abrir', { convite, senha: d.senha })); } catch (er) { mostrarConvite(convite, 1, {}, er.message); }
+  }
+  if (f.matches('[data-convite-2]')) {
+    e.preventDefault();
+    const convite = $('#entrada').dataset.convite;
+    try {
+      await api('POST', '/api/convite/ativar', { convite, codigo: d.codigo });
+      history.replaceState(null, '', location.pathname);
+      mostrarEntrada();
+      $('#entrada p').textContent = 'Pronto. Agora entre com a senha e um código novo do autenticador.';
+    } catch (er) { mostrarConvite(convite, 2, UI.conviteDados, er.message); }
+  }
+});
+
+function iniciarApp() {
+  mostrarTela(true);
+  const aba = location.hash.slice(1);
+  UI.aba = ABAS.includes(aba) && aba !== 'busca' ? aba : 'hoje';
   document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === UI.aba));
   document.querySelectorAll('main > section').forEach((s) => s.hidden = s.id !== 'aba-' + UI.aba);
+  carregarTudo();
 }
-carregarTudo();
-setInterval(() => { if (UI.aba === 'hoje' && !document.activeElement?.closest('form, .ficha')) carregarAba(); }, 3 * 60e3);
+
+(async () => {
+  const convite = location.hash.match(/^#convite=(cvt_[\w-]+)$/)?.[1];
+  // O convite sai da barra de endereço na hora (não fica no histórico nem em print).
+  if (convite) { history.replaceState(null, '', location.pathname); return mostrarConvite(convite); }
+  try {
+    const s = await (await fetch('/api/sessao')).json();
+    if (s.logado) return iniciarApp();
+    mostrarEntrada(s.configurado ? '' : 'A Central ainda não tem dono: peça um convite (node src/admin.ts convite).');
+  } catch { mostrarEntrada('Sem conexão com a Central.'); }
+})();
+setInterval(() => {
+  if ($('#topo').hidden || document.activeElement?.closest('form, .ficha')) return;
+  if (UI.aba === 'hoje' && Date.now() - (UI.hojeEm || 0) > 3 * 60e3) { UI.hojeEm = Date.now(); carregarAba(); }
+  // Pareando o WhatsApp: o código chega em segundos.
+  if (UI.aba === 'conexoes' && D.contas?.some((c) => c.tipo === 'whatsapp' && (c.estado?.pedido || (c.estado?.codigo && !c.estado?.conectado)))) carregarAba();
+}, 5e3);
 </script>
 </body>
 </html>

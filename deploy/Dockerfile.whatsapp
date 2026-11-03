@@ -1,0 +1,11 @@
+# Processo do WhatsApp (Baileys), separado da Central: se ele cair ou for
+# comprometido, não tem o banco nem a chave da Central, só a própria sessão.
+FROM node:24.22.1-bookworm-slim
+WORKDIR /app/whatsapp
+ENV NODE_ENV=production TZ=America/Sao_Paulo SESSAO=/sessao CHAVE_ARQ=/segredos/chave CENTRAL_TOKEN_ARQ=/segredos/token
+COPY whatsapp/package.json whatsapp/package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund && npm cache clean --force
+COPY whatsapp/mensagem.ts whatsapp/sessao.ts whatsapp/processo.ts ./
+COPY src/cofre.ts /app/src/cofre.ts
+USER node
+CMD ["node", "processo.ts"]

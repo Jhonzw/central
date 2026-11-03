@@ -1,0 +1,56 @@
+# Central num servidor que já roda outras coisas. Os limites garantem que ela
+# não tira recurso de ninguém: memória e CPU com teto, e cpu_shares baixo
+# (na disputa por CPU, os outros contêineres ganham).
+#
+# Pastas no servidor (CENTRAL_DIR, padrão /opt/central):
+#   dados/      banco e backups (dono 1000)
+#   config/     local.json (só leitura)
+#   segredos/   chave do cofre, chave e token do WhatsApp (600, dono 1000)
+#   whatsapp/   sessão cifrada do WhatsApp (dono 1000)
+
+x-endurecido: &endurecido
+  restart: unless-stopped
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 100
+  cpu_shares: 256
+  logging:
+    driver: json-file
+    options: { max-size: 10m, max-file: '3' }
+
+services:
+  central:
+    <<: *endurecido
+    build: { context: .., dockerfile: deploy/Dockerfile }
+    image: central:local
+    container_name: central
+    ports: ['127.0.0.1:7800:7800']
+    mem_limit: 256m
+    cpus: 0.5
+    environment:
+      CENTRAL_PROXY: '1'
+      CENTRAL_HTTPS: '${CENTRAL_HTTPS:-0}'
+      CENTRAL_HOSTS: 'central:7800,${CENTRAL_DOMINIO:-localhost}'
+    volumes:
+      - ${CENTRAL_DIR:-/opt/central}/dados:/dados
+      - ${CENTRAL_DIR:-/opt/central}/config:/config:ro
+      - ${CENTRAL_DIR:-/opt/central}/segredos/chave:/segredos/chave:ro
+
+  whatsapp:
+    <<: *endurecido
+    profiles: [whatsapp]
+    build: { context: .., dockerfile: deploy/Dockerfile.whatsapp }
+    image: central-whatsapp:local
+    container_name: central-whatsapp
+    depends_on: [central]
+    mem_limit: 512m
+    cpus: 0.5
+    environment:
+      CENTRAL_URL: http://central:7800
+      CONTA: '${WHATSAPP_CONTA:-whatsapp}'
+    volumes:
+      - ${CENTRAL_DIR:-/opt/central}/whatsapp:/sessao
+      - ${CENTRAL_DIR:-/opt/central}/segredos/whatsapp-chave:/segredos/chave:ro
+      - ${CENTRAL_DIR:-/opt/central}/segredos/whatsapp-token:/segredos/token:ro

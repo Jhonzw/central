@@ -1,12 +1,15 @@
 {
-  "_comentario": "Copie para config/local.json (fora do git). Os espaços são criados na primeira subida e depois editados pela tela.",
+  "_comentario": "Copie para config/local.json (fora do git). Os espaços são criados na primeira subida e depois editados pela tela. Contas de e-mail e WhatsApp entram pela aba Conexões.",
   "nome": "Ana",
   "porta": 7800,
+  "retencaoDias": 90,
+  "emailMinutos": 5,
   "espacos": [
     { "id": "pessoal", "nome": "Pessoal", "cor": "#6b5b95" },
     { "id": "empresa-a", "nome": "Empresa A", "cor": "#0e5a55" }
   ],
   "conectores": [
-    { "id": "painel-a", "espaco": "empresa-a", "tipo": "resumo-http", "nome": "Painel da Empresa A", "url": "http://localhost:7899/api/resumo" }
+    { "id": "painel-a", "espaco": "empresa-a", "tipo": "resumo-http", "nome": "Painel da Empresa A", "url": "http://localhost:7899/api/resumo" },
+    { "id": "painel-b", "espaco": "empresa-a", "tipo": "resumo-push", "nome": "Painel que manda resumo" }
   ]
 }
