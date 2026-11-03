@@ -310,7 +310,7 @@ function desenharHoje() {
       </div>`).join('') || (erros ? '' : '<div class="vazio">Nada pedindo ação.</div>')}${erros}`;
   }).join('');
   $('#aba-hoje').innerHTML = `
-    <div class="saudacao"><h1>${saudacao()}, João.</h1>
+    <div class="saudacao"><h1>${saudacao()}${D.vocab.nome ? ', ' + esc(D.vocab.nome) : ''}.</h1>
       <p>${data[0].toUpperCase() + data.slice(1)}. ${urgentes ? `${plural(urgentes, 'coisa venceu ou é', 'coisas venceram ou são')} para hoje, somando todos os espaços.` : 'Nada vencido em nenhum espaço.'}</p></div>
     ${formNova()}
     ${falha()}${blocos}

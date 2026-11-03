@@ -16,7 +16,7 @@ import * as tarefas from './tarefas.ts';
 import { montarHoje } from './hoje.ts';
 import { validarConfig, type ConfigConector } from './conectores/index.ts';
 
-const ARQ_CONFIG = new URL('../config/local.json', import.meta.url);
+const ARQ_CONFIG = process.env.CENTRAL_CONFIG ? new URL(`file://${process.env.CENTRAL_CONFIG}`) : new URL('../config/local.json', import.meta.url);
 const config = existsSync(ARQ_CONFIG) ? JSON.parse(readFileSync(ARQ_CONFIG, 'utf8')) : { espacos: [{ id: 'pessoal', nome: 'Pessoal' }], conectores: [] };
 const PORTA = Number(process.env.CENTRAL_PORTA || config.porta || 7800);
 const db = abrir(process.env.CENTRAL_BANCO || new URL('../data/central.sqlite3', import.meta.url).pathname);
@@ -64,7 +64,7 @@ const ROTAS: Rota[] = [
   ['POST', /^\/api\/tarefas$/, async (_m, _u, req) => tarefas.criar(db, await lerCorpo(req))],
   ['GET', /^\/api\/tarefas\/(\d+)$/, (m) => tarefas.obter(db, Number(m[1]))],
   ['PATCH', /^\/api\/tarefas\/(\d+)$/, async (m, _u, req) => tarefas.alterar(db, Number(m[1]), await lerCorpo(req))],
-  ['GET', /^\/api\/vocabulario$/, () => ({ status: tarefas.STATUS, abertos: tarefas.ABERTOS })],
+  ['GET', /^\/api\/vocabulario$/, () => ({ status: tarefas.STATUS, abertos: tarefas.ABERTOS, nome: String(config.nome || '') })],
 ];
 
 const servidor = createServer(async (req, res) => {
