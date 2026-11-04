@@ -20,20 +20,35 @@ const MARCA = '\u0000';
 export function enderecoInterno(ip: string): boolean {
   if (isIP(ip) === 6) {
     const v = ip.toLowerCase();
-    if (v === '::1' || v === '::' || v.startsWith('fc') || v.startsWith('fd') || v.startsWith('fe80')) return true;
+    if (v === '::1' || v === '::' || v.startsWith('fc') || v.startsWith('fd') || v.startsWith('fe80'))
+      return true;
     const m = v.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
     return m ? enderecoInterno(m[1]) : false;
   }
   const [a, b] = ip.split('.').map(Number);
-  return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31)
-    || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
+  return (
+    a === 10 ||
+    a === 127 ||
+    a === 0 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    a >= 224
+  );
 }
 
 // Resolve o nome e recusa se cair em endereço interno.
-function lookupSeguro(host: string, opcoes: object, cb: (e: Error | null, end: string | Array<{ address: string; family: number }>, fam?: number) => void) {
+function lookupSeguro(
+  host: string,
+  opcoes: object,
+  cb: (e: Error | null, end: string | Array<{ address: string; family: number }>, fam?: number) => void,
+) {
   lookup(host, { ...opcoes, all: true }, (e, lista) => {
     if (e) return cb(e, '');
-    const ok = (lista as Array<{ address: string; family: number }>).filter((x) => !enderecoInterno(x.address));
+    const ok = (lista as Array<{ address: string; family: number }>).filter(
+      (x) => !enderecoInterno(x.address),
+    );
     if (!ok.length) return cb(new Error(`${host} aponta para endereço interno`), '');
     if ((opcoes as { all?: boolean }).all) return cb(null, ok);
     cb(null, ok[0].address, ok[0].family);
@@ -44,6 +59,17 @@ function lookupSeguro(host: string, opcoes: object, cb: (e: Error | null, end: s
 export function aspas(s: string): string {
   if (/[\r\n\0]/.test(s)) throw new Error('texto inválido para IMAP');
   return `"${s.replace(/[\\"]/g, (c) => '\\' + c)}"`;
+}
+
+// IMAP4rev1 identifica pastas em modified UTF-7, inclusive acentos e &.
+function nomeDaPasta(pasta: string): string {
+  aspas(pasta); // Rejeita controles antes da codificação.
+  return pasta.replace(/&|[^\x20-\x7e]+/g, (trecho) => {
+    if (trecho === '&') return '&-';
+    const bytes = Buffer.from(trecho, 'utf16le');
+    bytes.swap16();
+    return '&' + bytes.toString('base64').replace(/=/g, '').replace(/\//g, ',') + '-';
+  });
 }
 
 // ---------- Leitura das respostas ----------
@@ -57,13 +83,26 @@ export function analisar(u: Unidade): Valor[] {
     const out: Valor[] = [];
     while (i < s.length) {
       const c = s[i];
-      if (c === ' ') { i++; continue; }
-      if (c === ')') { i++; return out; }
-      if (c === '(') { i++; out.push(lista()); continue; }
+      if (c === ' ') {
+        i++;
+        continue;
+      }
+      if (c === ')') {
+        i++;
+        return out;
+      }
+      if (c === '(') {
+        i++;
+        out.push(lista());
+        continue;
+      }
       if (c === '"') {
         let v = '';
         i++;
-        while (i < s.length && s[i] !== '"') { if (s[i] === '\\') i++; v += s[i++]; }
+        while (i < s.length && s[i] !== '"') {
+          if (s[i] === '\\') i++;
+          v += s[i++];
+        }
         i++;
         out.push(v);
         continue;
@@ -81,7 +120,8 @@ export function analisar(u: Unidade): Valor[] {
         if (d === '[') fundo++;
         else if (d === ']') fundo--;
         else if (fundo === 0 && (d === ' ' || d === ')' || d === '(')) break;
-        v += d; i++;
+        v += d;
+        i++;
       }
       out.push(v === 'NIL' ? null : v);
     }
@@ -99,14 +139,37 @@ export class Imap {
   private n = 0;
 
   // `rede` só existe para os testes (servidor falso em 127.0.0.1 com certificado próprio).
-  static async abrir({ host, porta = 993, timeout = 30000, rede }: { host: string; porta?: number; timeout?: number; rede?: Rede }): Promise<Imap> {
+  static async abrir({
+    host,
+    porta = 993,
+    timeout = 30000,
+    rede,
+  }: {
+    host: string;
+    porta?: number;
+    timeout?: number;
+    rede?: Rede;
+  }): Promise<Imap> {
     const c = new Imap();
     await new Promise<void>((ok, falha) => {
-      c.sock = connect({ host, port: porta, servername: host, minVersion: 'TLSv1.2', timeout,
-        ...(rede?.permitirInterno ? {} : { lookup: lookupSeguro as never }), ...(rede?.ca ? { ca: rede.ca } : {}) }, ok);
+      c.sock = connect(
+        {
+          host,
+          port: porta,
+          servername: host,
+          minVersion: 'TLSv1.2',
+          timeout,
+          ...(rede?.permitirInterno ? {} : { lookup: lookupSeguro as never }),
+          ...(rede?.ca ? { ca: rede.ca } : {}),
+        },
+        ok,
+      );
       c.sock.once('error', falha);
     });
-    c.sock.on('data', (d: Buffer) => { c.buf = Buffer.concat([c.buf, d]); c.cortar(); });
+    c.sock.on('data', (d: Buffer) => {
+      c.buf = Buffer.concat([c.buf, d]);
+      c.cortar();
+    });
     c.sock.on('error', (e) => c.falhar(e));
     c.sock.on('timeout', () => c.falhar(new Error('o servidor IMAP parou de responder')));
     c.sock.on('close', () => c.falhar(new Error('conexão IMAP fechada')));
@@ -150,14 +213,20 @@ export class Imap {
       this.parcial.texto += linha;
       const u = this.parcial;
       this.parcial = { texto: '', literais: [] };
-      if (this.esperando) { const w = this.esperando; this.esperando = null; w(u); } else this.fila.push(u);
+      if (this.esperando) {
+        const w = this.esperando;
+        this.esperando = null;
+        w(u);
+      } else this.fila.push(u);
     }
   }
 
   private async proxima(): Promise<Unidade> {
     if (this.fila.length) return this.fila.shift()!;
     if (this.erro) throw this.erro;
-    const u = await new Promise<Unidade>((ok) => { this.esperando = ok; });
+    const u = await new Promise<Unidade>((ok) => {
+      this.esperando = ok;
+    });
     if (this.erro) throw this.erro;
     return u;
   }
@@ -177,7 +246,8 @@ export class Imap {
       }
       if (u.texto.startsWith(tag + ' ')) {
         const resto = u.texto.slice(tag.length + 1);
-        if (!/^OK/i.test(resto)) throw new Error(resto.replace(/^(NO|BAD)\s*/i, '').slice(0, 200) || 'comando recusado');
+        if (!/^OK/i.test(resto))
+          throw new Error(resto.replace(/^(NO|BAD)\s*/i, '').slice(0, 200) || 'comando recusado');
         return respostas;
       }
       respostas.push(u);
@@ -191,8 +261,9 @@ export class Imap {
   }
 
   async examinar(pasta: string): Promise<{ uidvalidity: number; existe: number }> {
-    const r = await this.comando(`EXAMINE ${aspas(pasta)}`);
-    let uidvalidity = 0, existe = 0;
+    const r = await this.comando(`EXAMINE ${aspas(nomeDaPasta(pasta))}`);
+    let uidvalidity = 0,
+      existe = 0;
     for (const u of r) {
       const v = u.texto.match(/\[UIDVALIDITY (\d+)\]/i);
       if (v) uidvalidity = Number(v[1]);
@@ -204,7 +275,9 @@ export class Imap {
 
   async buscar(criterio: string): Promise<number[]> {
     const r = await this.comando(`UID SEARCH ${criterio}`);
-    return r.flatMap((u) => (u.texto.match(/^\* SEARCH(.*)$/i)?.[1] ?? '').trim().split(/\s+/).filter(Boolean).map(Number));
+    return r.flatMap((u) =>
+      (u.texto.match(/^\* SEARCH(.*)$/i)?.[1] ?? '').trim().split(/\s+/).filter(Boolean).map(Number),
+    );
   }
 
   // Devolve, por UID, os pares do FETCH (ex.: { UID: '12', 'BODY[TEXT]<0>': Buffer }).
@@ -225,7 +298,11 @@ export class Imap {
   }
 
   async sair(): Promise<void> {
-    try { await Promise.race([this.comando('LOGOUT'), new Promise((r) => setTimeout(r, 3000))]); } catch { /* já fechou */ }
+    try {
+      await Promise.race([this.comando('LOGOUT'), new Promise((r) => setTimeout(r, 3000))]);
+    } catch {
+      /* já fechou */
+    }
     this.sock.destroy();
   }
 }
