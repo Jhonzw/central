@@ -5,7 +5,13 @@ import { type Banco, agora, emTransacao, registrar, texto, ErroDeEntrada } from 
 import { obter as obterEspaco } from './espacos.ts';
 
 export type Canal = { id: number; tipo: string; valor: string };
-export type Pessoa = { id: number; nome: string; notas: string; espacos: Array<{ id: string; papel: string }>; canais: Canal[] };
+export type Pessoa = {
+  id: number;
+  nome: string;
+  notas: string;
+  espacos: Array<{ id: string; papel: string }>;
+  canais: Canal[];
+};
 
 const TIPOS = ['email', 'whatsapp', 'telefone', 'outro'];
 
@@ -28,12 +34,18 @@ export function normalizarCanal(tipo: string, valor: unknown): string {
 }
 
 function montar(db: Banco, id: number | bigint): Pessoa {
-  const p = db.prepare('SELECT id, nome, notas FROM pessoas WHERE id = ?').get(id) as { id: number; nome: string; notas: string } | undefined;
+  const p = db.prepare('SELECT id, nome, notas FROM pessoas WHERE id = ?').get(id) as
+    | { id: number; nome: string; notas: string }
+    | undefined;
   if (!p) throw new ErroDeEntrada(`pessoa ${id} não existe`, 404);
   return {
     ...p,
-    espacos: db.prepare('SELECT espaco_id id, papel FROM pessoa_espaco WHERE pessoa_id = ? ORDER BY espaco_id').all(id) as Pessoa['espacos'],
-    canais: db.prepare('SELECT id, tipo, valor FROM canais WHERE pessoa_id = ? ORDER BY tipo, valor').all(id) as Canal[],
+    espacos: db
+      .prepare('SELECT espaco_id id, papel FROM pessoa_espaco WHERE pessoa_id = ? ORDER BY espaco_id')
+      .all(id) as Pessoa['espacos'],
+    canais: db
+      .prepare('SELECT id, tipo, valor FROM canais WHERE pessoa_id = ? ORDER BY tipo, valor')
+      .all(id) as Canal[],
   };
 }
 export const obter = montar;
@@ -41,15 +53,24 @@ export const obter = montar;
 export function listar(db: Banco, { espaco, q }: { espaco?: string; q?: string } = {}): Pessoa[] {
   const filtros: string[] = [];
   const args: string[] = [];
-  if (espaco) { filtros.push('EXISTS (SELECT 1 FROM pessoa_espaco pe WHERE pe.pessoa_id = p.id AND pe.espaco_id = ?)'); args.push(espaco); }
+  if (espaco) {
+    filtros.push('EXISTS (SELECT 1 FROM pessoa_espaco pe WHERE pe.pessoa_id = p.id AND pe.espaco_id = ?)');
+    args.push(espaco);
+  }
   if (q) {
     const termo = `%${q.trim().toLowerCase()}%`;
     const digitos = q.replace(/\D/g, '');
-    filtros.push(`(lower(p.nome) LIKE ? OR EXISTS (SELECT 1 FROM canais c WHERE c.pessoa_id = p.id AND (c.valor LIKE ?${digitos.length >= 4 ? ' OR c.valor LIKE ?' : ''})))`);
+    filtros.push(
+      `(lower(p.nome) LIKE ? OR EXISTS (SELECT 1 FROM canais c WHERE c.pessoa_id = p.id AND (c.valor LIKE ?${digitos.length >= 4 ? ' OR c.valor LIKE ?' : ''})))`,
+    );
     args.push(termo, termo);
     if (digitos.length >= 4) args.push(`%${digitos}%`);
   }
-  const ids = db.prepare(`SELECT id FROM pessoas p ${filtros.length ? 'WHERE ' + filtros.join(' AND ') : ''} ORDER BY nome LIMIT 500`).all(...args);
+  const ids = db
+    .prepare(
+      `SELECT id FROM pessoas p ${filtros.length ? 'WHERE ' + filtros.join(' AND ') : ''} ORDER BY nome LIMIT 500`,
+    )
+    .all(...args);
   return ids.map((r) => montar(db, Number(r.id)));
 }
 
@@ -62,18 +83,28 @@ export function salvar(db: Banco, dados: Record<string, unknown>, id?: number): 
     let pid: number | bigint;
     if (id) {
       montar(db, id);
-      db.prepare('UPDATE pessoas SET nome = ?, notas = ?, atualizado = ? WHERE id = ?').run(nome, notas, agora(), id);
+      db.prepare('UPDATE pessoas SET nome = ?, notas = ?, atualizado = ? WHERE id = ?').run(
+        nome,
+        notas,
+        agora(),
+        id,
+      );
       pid = id;
     } else {
-      pid = db.prepare('INSERT INTO pessoas (nome, notas, criado, atualizado) VALUES (?, ?, ?, ?)').run(nome, notas, agora(), agora()).lastInsertRowid;
+      pid = db
+        .prepare('INSERT INTO pessoas (nome, notas, criado, atualizado) VALUES (?, ?, ?, ?)')
+        .run(nome, notas, agora(), agora()).lastInsertRowid;
     }
     if (Array.isArray(dados.espacos)) {
       db.prepare('DELETE FROM pessoa_espaco WHERE pessoa_id = ?').run(pid);
       for (const e of dados.espacos as Array<Record<string, unknown> | string>) {
         const eid = typeof e === 'string' ? e : String(e.id);
         obterEspaco(db, eid);
-        db.prepare('INSERT OR IGNORE INTO pessoa_espaco (pessoa_id, espaco_id, papel) VALUES (?, ?, ?)')
-          .run(pid, eid, typeof e === 'string' ? '' : texto(e.papel, 'papel', 60, false));
+        db.prepare('INSERT OR IGNORE INTO pessoa_espaco (pessoa_id, espaco_id, papel) VALUES (?, ?, ?)').run(
+          pid,
+          eid,
+          typeof e === 'string' ? '' : texto(e.papel, 'papel', 60, false),
+        );
       }
     }
     if (Array.isArray(dados.canais)) {
@@ -99,4 +130,25 @@ export function apagar(db: Banco, id: number): void {
     db.prepare('DELETE FROM pessoas WHERE id = ?').run(id);
     registrar(db, 'pessoas', id, 'apagou', p);
   });
+}
+
+// Eventos carregam referências e títulos; conteúdo efêmero de mensagem nunca é copiado.
+export function linhaDoTempo(db: Banco, id: number, { espaco }: { espaco?: string } = {}) {
+  const pessoa = obter(db, id);
+  const args: Array<string | number> = [id, ...(espaco ? [espaco] : [])];
+  const eventos = db
+    .prepare(
+      `
+ SELECT 'tarefa' tipo,t.id,t.titulo,t.criado em,t.espaco_id,NULL conversa_id,t.id tarefa_id,t.projeto_id
+ FROM tarefas t WHERE t.pessoa_id=? ${espaco ? 'AND t.espaco_id=?' : ''}
+ UNION ALL
+ SELECT 'conversa' tipo,c.id,c.titulo,c.ultima_em em,c.espaco_id,c.id conversa_id,NULL tarefa_id,NULL projeto_id
+ FROM conversas c WHERE c.pessoa_id=? ${espaco ? 'AND c.espaco_id=?' : ''}
+ UNION ALL
+ SELECT 'anotacao' tipo,a.id,t.titulo,a.em,t.espaco_id,NULL conversa_id,t.id tarefa_id,t.projeto_id
+ FROM anotacoes a JOIN tarefas t ON t.id=a.tarefa_id WHERE t.pessoa_id=? ${espaco ? 'AND t.espaco_id=?' : ''}
+ ORDER BY em DESC,id DESC LIMIT 500`,
+    )
+    .all(...args, ...args, ...args);
+  return { pessoa, eventos };
 }

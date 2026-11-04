@@ -4,8 +4,9 @@
 
 import type { Banco } from './db.ts';
 import { listar as listarEspacos } from './espacos.ts';
-import { listar as listarTarefas, type Tarefa } from './tarefas.ts';
-import { pendentesPorEspaco } from './caixa.ts';
+import { listar as listarTarefas } from './tarefas.ts';
+import { listar as listarProjetos } from './projetos.ts';
+import { pendentesPorEspaco, listar as listarConversas } from './caixa.ts';
 import { ler, type ConfigConector, type Leitura } from './conectores/index.ts';
 
 export function hojeLocal(): string {
@@ -14,14 +15,23 @@ export function hojeLocal(): string {
 
 export async function montarHoje(db: Banco, conectores: ConfigConector[], { forcar = false } = {}) {
   const hoje = hojeLocal();
+  const instante = new Date().toISOString();
   const leituras = await Promise.all(conectores.map((c) => ler(c, db, forcar)));
   const conversas = pendentesPorEspaco(db);
   const espacos = listarEspacos(db).map((e) => {
     const abertas = listarTarefas(db, { espaco: e.id });
+    const vencidas = abertas.filter(
+      (t) => (!!t.proxima && t.proxima < hoje) || (!!t.prazo && t.prazo < hoje),
+    );
+    const lembretes = abertas.filter((t) => !!t.lembrete && t.lembrete <= instante);
+    const destacados = new Set([...vencidas, ...lembretes].map((t) => t.id));
     return {
       espaco: e,
-      vencidas: abertas.filter((t: Tarefa) => !!t.proxima && t.proxima < hoje),
-      deHoje: abertas.filter((t) => t.proxima === hoje),
+      projetos: listarProjetos(db, { espaco: e.id }),
+      cobrancas: listarConversas(db, { espaco: e.id, estado: 'cobrar' }),
+      vencidas,
+      lembretes,
+      deHoje: abertas.filter((t) => !destacados.has(t.id) && (t.proxima === hoje || t.prazo === hoje)),
       abertas: abertas.length,
       semData: abertas.filter((t) => !t.proxima).length,
       conversas: conversas[e.id] ?? { responder: 0, esperando: 0, primeiras: [] },

@@ -37,7 +37,7 @@ test('conta de e-mail: senha cifrada, nunca volta, e só IMAP com TLS', () => {
   assert.throws(() => contas.salvar(db, cofre, { id: 'x1', tipo: 'email', nome: 'X', espaco_id: 'pessoal', host: 'mail.localhost', usuario: 'a@b.com', senha: 'x' }), /interno/);
 });
 
-test('estado: chega → responder; respondi → esperando; resolvida reabre; arquivada fica', () => {
+test('estado: chega → responder; respondi → esperando; resolvida reabre; arquivada reabre', () => {
   const db = banco();
   const { conversa } = caixa.receber(db, msg());
   assert.equal(caixa.obter(db, conversa).estado, 'responder');
@@ -48,7 +48,7 @@ test('estado: chega → responder; respondi → esperando; resolvida reabre; arq
   assert.equal(caixa.obter(db, conversa).estado, 'responder');
   caixa.alterar(db, conversa, { estado: 'arquivada' });
   caixa.receber(db, msg({ externo: 'm4', em: '2026-11-03T12:00:00Z' }));
-  assert.equal(caixa.obter(db, conversa).estado, 'arquivada');
+  assert.equal(caixa.obter(db, conversa).estado, 'responder');
   // Mesma mensagem duas vezes não duplica.
   assert.equal(caixa.receber(db, msg({ externo: 'm4' })).nova, false);
   assert.equal(caixa.obter(db, conversa).mensagens.length, 4);

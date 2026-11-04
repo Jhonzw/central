@@ -3,11 +3,18 @@
   "private": true,
   "type": "module",
   "description": "Central pessoal: espaços separados por empresa, pessoas, tarefas, caixa de e-mail e WhatsApp só leitura, e o dia juntando tudo.",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "start": "node src/server.ts",
     "admin": "node src/admin.ts",
     "test": "node --test test/*.test.ts",
+    "test:e2e": "playwright test",
+    "gateway": "node ferramentas/gateway-local.ts",
     "mcp": "node mcp/central-mcp.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
   }
 }

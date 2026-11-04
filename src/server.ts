@@ -23,6 +23,7 @@ import { lerOuCriarChave, criarCofre } from './cofre.ts';
 import * as acesso from './acesso.ts';
 import * as espacos from './espacos.ts';
 import * as pessoas from './pessoas.ts';
+import * as projetos from './projetos.ts';
 import * as tarefas from './tarefas.ts';
 import * as contas from './contas.ts';
 import * as caixa from './caixa.ts';
@@ -38,7 +39,10 @@ const db = abrir(cfg.banco);
 const cofre = criarCofre(lerOuCriarChave(cfg.chave));
 
 espacos.semear(db, cfg.espacos);
-validarConfig(cfg.conectores, espacos.listar(db, { comArquivados: true }).map((e) => e.id));
+validarConfig(
+  cfg.conectores,
+  espacos.listar(db, { comArquivados: true }).map((e) => e.id),
+);
 // emailMinutos 0 desliga a leitura automática (demonstração, testes).
 const coletor = cfg.emailMinutos > 0 ? iniciarColetor(db, cofre, { minutos: cfg.emailMinutos }) : null;
 agendar(db, cfg);
@@ -73,7 +77,8 @@ const json = (res: ServerResponse, codigo: number, corpo: unknown) => {
 };
 
 async function lerCorpo(req: IncomingMessage, limite = 64000): Promise<Record<string, unknown>> {
-  if (!/^application\/json\b/i.test(String(req.headers['content-type'] || ''))) throw new ErroDeEntrada('mande Content-Type: application/json', 415);
+  if (!/^application\/json\b/i.test(String(req.headers['content-type'] || '')))
+    throw new ErroDeEntrada('mande Content-Type: application/json', 415);
   let corpo = '';
   for await (const parte of req) {
     corpo += parte;
@@ -95,7 +100,10 @@ function cookie(req: IncomingMessage): string | undefined {
   }
 }
 const marcarSessao = (res: ServerResponse, token: string, segundos: number) =>
-  res.setHeader('Set-Cookie', `${COOKIE}=${token}; Path=${CAMINHO_COOKIE}; HttpOnly; Secure; SameSite=Strict; Max-Age=${segundos}`);
+  res.setHeader(
+    'Set-Cookie',
+    `${COOKIE}=${token}; Path=${CAMINHO_COOKIE}; HttpOnly; Secure; SameSite=Strict; Max-Age=${segundos}`,
+  );
 
 function ipDe(req: IncomingMessage): string {
   const direto = req.socket.remoteAddress || '';
@@ -105,10 +113,25 @@ function ipDe(req: IncomingMessage): string {
 
 // A página: o CSP leva o hash do script embutido, então nenhum outro script roda.
 async function pagina(res: ServerResponse) {
-  const html = await readFile(new URL('index.html', WEB), 'utf8');
-  const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => `'sha256-${createHash('sha256').update(m[1]).digest('base64')}'`);
-  seguranca(res, `default-src 'none'; script-src ${hashes.join(' ')}; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; `
-    + "connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+  let html = await readFile(new URL('index.html', WEB), 'utf8');
+  if (html.includes('/*CENTRAL_STYLES*/')) {
+    const estilos = await readFile(new URL('estilos.css', WEB), 'utf8');
+    html = html.replace('/*CENTRAL_STYLES*/', () => estilos);
+  }
+  if (html.includes('/*CENTRAL_APP*/')) {
+    const [fluxo, app] = await Promise.all(
+      ['fluxo.js', 'app.js'].map((nome) => readFile(new URL(nome, WEB), 'utf8')),
+    );
+    html = html.replace('/*CENTRAL_APP*/', () => fluxo + '\n' + app);
+  }
+  const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(
+    (m) => `'sha256-${createHash('sha256').update(m[1]).digest('base64')}'`,
+  );
+  seguranca(
+    res,
+    `default-src 'none'; script-src ${hashes.join(' ')}; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; ` +
+      "connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+  );
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(html);
 }
@@ -117,7 +140,10 @@ const FONTES = /^\/fontes\/([a-z0-9-]+\.woff2)$/;
 async function fonte(res: ServerResponse, nome: string) {
   try {
     const f = await readFile(new URL(`fontes/${nome}`, WEB));
-    res.writeHead(200, { 'Content-Type': 'font/woff2', 'Cache-Control': 'public, max-age=31536000, immutable' });
+    res.writeHead(200, {
+      'Content-Type': 'font/woff2',
+      'Cache-Control': 'public, max-age=31536000, immutable',
+    });
     res.end(f);
   } catch {
     json(res, 404, { erro: 'não encontrado' });
@@ -132,70 +158,294 @@ const q = (p: Pedido, k: string) => p.url.searchParams.get(k) || undefined;
 
 // Abertas: entrar e o primeiro acesso.
 const PUBLICAS: Array<[string, RegExp, Fn]> = [
-  ['GET', /^\/api\/sessao$/, ({ req }) => ({ logado: acesso.sessaoValida(db, cookie(req)), configurado: acesso.configurado(db) })],
-  ['POST', /^\/api\/entrar$/, async ({ req, res, ip }) => {
-    const b = await lerCorpo(req);
-    const token = await acesso.entrar(db, cofre, { senha: b.senha, codigo: b.codigo, ip, agente: String(req.headers['user-agent'] || '') });
-    marcarSessao(res, token, 30 * 86400);
-    return { ok: true };
-  }],
-  ['POST', /^\/api\/convite\/abrir$/, async ({ req, ip }) => { const b = await lerCorpo(req); const r = await acesso.abrirConvite(db, cofre, { convite: b.convite, senha: b.senha, ip }); return { ...r, qr: qrSvg(r.uri) }; }],
-  ['POST', /^\/api\/convite\/ativar$/, async ({ req, ip }) => { const b = await lerCorpo(req); acesso.ativarConvite(db, cofre, { convite: b.convite, codigo: b.codigo, ip }); return { ok: true }; }],
+  [
+    'GET',
+    /^\/api\/sessao$/,
+    ({ req }) => ({ logado: acesso.sessaoValida(db, cookie(req)), configurado: acesso.configurado(db) }),
+  ],
+  [
+    'POST',
+    /^\/api\/entrar$/,
+    async ({ req, res, ip }) => {
+      const b = await lerCorpo(req);
+      const token = await acesso.entrar(db, cofre, {
+        senha: b.senha,
+        codigo: b.codigo,
+        ip,
+        agente: String(req.headers['user-agent'] || ''),
+      });
+      marcarSessao(res, token, 30 * 86400);
+      return { ok: true };
+    },
+  ],
+  [
+    'POST',
+    /^\/api\/convite\/abrir$/,
+    async ({ req, ip }) => {
+      const b = await lerCorpo(req);
+      const r = await acesso.abrirConvite(db, cofre, { convite: b.convite, senha: b.senha, ip });
+      return { ...r, qr: qrSvg(r.uri) };
+    },
+  ],
+  [
+    'POST',
+    /^\/api\/convite\/ativar$/,
+    async ({ req, ip }) => {
+      const b = await lerCorpo(req);
+      acesso.ativarConvite(db, cofre, { convite: b.convite, codigo: b.codigo, ip });
+      return { ok: true };
+    },
+  ],
 ];
 
 // Máquinas (token no Authorization). escopo(p) diz qual token a rota aceita.
 const INGESTAO: Array<[string, RegExp, (p: Pedido) => string, Fn]> = [
-  ['POST', /^\/api\/ingest\/resumo\/([a-z0-9-]+)$/, (p) => `fonte:${p.m[1]}`, async (p) => {
-    const c = cfg.conectores.find((x) => x.id === p.m[1] && x.tipo === 'resumo-push');
-    if (!c) throw new ErroDeEntrada('conector não existe ou não é resumo-push', 404);
-    return { recebidos: guardarEmpurrado(db, c, (await lerCorpo(p.req)).itens) };
-  }],
-  ['POST', /^\/api\/ingest\/whatsapp\/([a-z0-9-]+)\/mensagens$/, (p) => `whatsapp:${p.m[1]}`, async (p) => whatsapp.receberLote(db, p.m[1], await lerCorpo(p.req, 2e6))],
-  ['POST', /^\/api\/ingest\/whatsapp\/([a-z0-9-]+)\/estado$/, (p) => `whatsapp:${p.m[1]}`, async (p) => whatsapp.anotarEstado(db, p.m[1], await lerCorpo(p.req))],
-  ['GET', /^\/api\/ingest\/whatsapp\/([a-z0-9-]+)\/pedido$/, (p) => `whatsapp:${p.m[1]}`, (p) => whatsapp.retirarPedido(db, p.m[1])],
+  [
+    'POST',
+    /^\/api\/ingest\/resumo\/([a-z0-9-]+)$/,
+    (p) => `fonte:${p.m[1]}`,
+    async (p) => {
+      const c = cfg.conectores.find((x) => x.id === p.m[1] && x.tipo === 'resumo-push');
+      if (!c) throw new ErroDeEntrada('conector não existe ou não é resumo-push', 404);
+      return { recebidos: guardarEmpurrado(db, c, (await lerCorpo(p.req)).itens) };
+    },
+  ],
+  [
+    'POST',
+    /^\/api\/ingest\/whatsapp\/([a-z0-9-]+)\/mensagens$/,
+    (p) => `whatsapp:${p.m[1]}`,
+    async (p) => whatsapp.receberLote(db, p.m[1], await lerCorpo(p.req, 2e6)),
+  ],
+  [
+    'POST',
+    /^\/api\/ingest\/whatsapp\/([a-z0-9-]+)\/estado$/,
+    (p) => `whatsapp:${p.m[1]}`,
+    async (p) => whatsapp.anotarEstado(db, p.m[1], await lerCorpo(p.req)),
+  ],
+  [
+    'GET',
+    /^\/api\/ingest\/whatsapp\/([a-z0-9-]+)\/pedido$/,
+    (p) => `whatsapp:${p.m[1]}`,
+    (p) => whatsapp.retirarPedido(db, p.m[1]),
+  ],
 ];
 
 // Do dono. As de leitura marcadas com `true` também aceitam token 'leitura'.
 const DO_DONO: Array<[string, RegExp, Fn, boolean?]> = [
-  ['POST', /^\/api\/sair$/, ({ req, res }) => { acesso.sair(db, cookie(req)); marcarSessao(res, '', 0); return { ok: true }; }],
+  [
+    'POST',
+    /^\/api\/sair$/,
+    ({ req, res }) => {
+      acesso.sair(db, cookie(req));
+      marcarSessao(res, '', 0);
+      return { ok: true };
+    },
+  ],
   ['GET', /^\/api\/sessoes$/, () => acesso.listarSessoes(db)],
-  ['POST', /^\/api\/sessoes\/sair-de-todas$/, ({ res }) => { marcarSessao(res, '', 0); return { saiu: acesso.sairDeTodas(db) }; }],
+  [
+    'POST',
+    /^\/api\/sessoes\/sair-de-todas$/,
+    ({ res }) => {
+      marcarSessao(res, '', 0);
+      return { saiu: acesso.sairDeTodas(db) };
+    },
+  ],
 
-  ['GET', /^\/api\/hoje$/, (p) => montarHoje(db, cfg.conectores, { forcar: p.url.searchParams.has('forcar') }), true],
-  ['GET', /^\/api\/vocabulario$/, () => ({ status: tarefas.STATUS, abertos: tarefas.ABERTOS, estados: caixa.ESTADOS, nome: cfg.nome }), true],
-  ['GET', /^\/api\/espacos$/, (p) => espacos.listar(db, { comArquivados: p.url.searchParams.has('todos') }), true],
+  ['GET', /^\/api\/operacao$/, () => ({ local: false, fontes: [] })],
+  [
+    'GET',
+    /^\/api\/hoje$/,
+    (p) => montarHoje(db, cfg.conectores, { forcar: p.url.searchParams.has('forcar') }),
+    true,
+  ],
+  [
+    'GET',
+    /^\/api\/vocabulario$/,
+    () => ({ status: tarefas.STATUS, abertos: tarefas.ABERTOS, estados: caixa.ESTADOS, nome: cfg.nome }),
+    true,
+  ],
+  [
+    'GET',
+    /^\/api\/espacos$/,
+    (p) => espacos.listar(db, { comArquivados: p.url.searchParams.has('todos') }),
+    true,
+  ],
   ['POST', /^\/api\/espacos$/, async (p) => espacos.salvar(db, await lerCorpo(p.req))],
 
   ['GET', /^\/api\/pessoas$/, (p) => pessoas.listar(db, { espaco: q(p, 'espaco'), q: q(p, 'q') }), true],
-  ['POST', /^\/api\/pessoas$/, async (p) => { const r = pessoas.salvar(db, await lerCorpo(p.req)); caixa.religar(db); return r; }],
+  [
+    'POST',
+    /^\/api\/pessoas$/,
+    async (p) => {
+      const r = pessoas.salvar(db, await lerCorpo(p.req));
+      caixa.religar(db);
+      return r;
+    },
+  ],
   ['GET', /^\/api\/pessoas\/(\d+)$/, (p) => pessoas.obter(db, id(p)), true],
-  ['PUT', /^\/api\/pessoas\/(\d+)$/, async (p) => { const r = pessoas.salvar(db, await lerCorpo(p.req), id(p)); caixa.religar(db); return r; }],
-  ['DELETE', /^\/api\/pessoas\/(\d+)$/, (p) => { pessoas.apagar(db, id(p)); return { ok: true }; }],
+  [
+    'PUT',
+    /^\/api\/pessoas\/(\d+)$/,
+    async (p) => {
+      const r = pessoas.salvar(db, await lerCorpo(p.req), id(p));
+      caixa.religar(db);
+      return r;
+    },
+  ],
+  [
+    'DELETE',
+    /^\/api\/pessoas\/(\d+)$/,
+    (p) => {
+      pessoas.apagar(db, id(p));
+      return { ok: true };
+    },
+  ],
 
-  ['GET', /^\/api\/tarefas$/, (p) => tarefas.listar(db, { espaco: q(p, 'espaco'), abertas: !p.url.searchParams.has('todas'), pessoa: Number(q(p, 'pessoa')) || undefined }), true],
+  [
+    'GET',
+    /^\/api\/projetos$/,
+    (p) => projetos.listar(db, { espaco: q(p, 'espaco'), todos: p.url.searchParams.has('todos') }),
+    true,
+  ],
+  ['POST', /^\/api\/projetos$/, async (p) => projetos.criar(db, await lerCorpo(p.req))],
+  [
+    'GET',
+    /^\/api\/projetos\/(\d+)$/,
+    (p) => ({
+      ...projetos.obter(db, id(p)),
+      tarefas: tarefas.listar(db, { projeto: id(p), abertas: false }),
+      conversas: caixa.listar(db, { projeto: id(p) }),
+    }),
+    true,
+  ],
+  ['PATCH', /^\/api\/projetos\/(\d+)$/, async (p) => projetos.alterar(db, id(p), await lerCorpo(p.req))],
+  [
+    'GET',
+    /^\/api\/pessoas\/(\d+)\/linha-do-tempo$/,
+    (p) => pessoas.linhaDoTempo(db, id(p), { espaco: q(p, 'espaco') }),
+    true,
+  ],
+  [
+    'GET',
+    /^\/api\/tarefas$/,
+    (p) =>
+      tarefas.listar(db, {
+        espaco: q(p, 'espaco'),
+        abertas: !p.url.searchParams.has('todas'),
+        pessoa: Number(q(p, 'pessoa')) || undefined,
+        projeto: Number(q(p, 'projeto')) || undefined,
+        sem_projeto: p.url.searchParams.has('sem_projeto'),
+      }),
+    true,
+  ],
   ['POST', /^\/api\/tarefas$/, async (p) => tarefas.criar(db, await lerCorpo(p.req))],
   ['GET', /^\/api\/tarefas\/(\d+)$/, (p) => tarefas.obter(db, id(p)), true],
   ['PATCH', /^\/api\/tarefas\/(\d+)$/, async (p) => tarefas.alterar(db, id(p), await lerCorpo(p.req))],
 
-  ['GET', /^\/api\/conversas$/, (p) => caixa.listar(db, { espaco: q(p, 'espaco'), estado: q(p, 'estado'), conta: q(p, 'conta') }), true],
-  ['GET', /^\/api\/conversas\/(\d+)$/, (p) => caixa.obter(db, id(p)), true],
+  [
+    'GET',
+    /^\/api\/conversas$/,
+    (p) =>
+      caixa.listar(db, {
+        espaco: q(p, 'espaco'),
+        estado: q(p, 'estado'),
+        conta: q(p, 'conta'),
+        canal: q(p, 'canal'),
+        pessoa: Number(q(p, 'pessoa')) || undefined,
+        projeto: Number(q(p, 'projeto')) || undefined,
+        q: q(p, 'q'),
+        antes: Number(q(p, 'antes')) || undefined,
+        limite: q(p, 'limite') === undefined ? undefined : Number(q(p, 'limite')),
+      }),
+    true,
+  ],
+  [
+    'GET',
+    /^\/api\/conversas\/(\d+)$/,
+    (p) =>
+      caixa.obter(db, id(p), {
+        antes: Number(q(p, 'antes')) || undefined,
+        mensagem: q(p, 'mensagem') === undefined ? undefined : Number(q(p, 'mensagem')),
+        limite: q(p, 'limite') === undefined ? undefined : Number(q(p, 'limite')),
+      }),
+    true,
+  ],
   ['PATCH', /^\/api\/conversas\/(\d+)$/, async (p) => caixa.alterar(db, id(p), await lerCorpo(p.req))],
-  ['POST', /^\/api\/conversas\/(\d+)\/tarefa$/, async (p) => caixa.virarTarefa(db, id(p), await lerCorpo(p.req))],
-  ['GET', /^\/api\/busca$/, (p) => caixa.buscar(db, String(q(p, 'q') || ''), { espaco: q(p, 'espaco') }), true],
+  [
+    'DELETE',
+    /^\/api\/conversas\/(\d+)\/vinculos\/(\d+)$/,
+    (p) => caixa.desvincular(db, id(p), Number(p.m[2])),
+  ],
+  [
+    'POST',
+    /^\/api\/conversas\/(\d+)\/vinculos$/,
+    async (p) => caixa.vincular(db, id(p), await lerCorpo(p.req)),
+  ],
+  [
+    'POST',
+    /^\/api\/conversas\/(\d+)\/tarefa$/,
+    async (p) => caixa.virarTarefa(db, id(p), await lerCorpo(p.req)),
+  ],
+  [
+    'GET',
+    /^\/api\/busca$/,
+    (p) => caixa.buscar(db, String(q(p, 'q') || ''), { espaco: q(p, 'espaco') }),
+    true,
+  ],
 
   ['GET', /^\/api\/contas$/, () => contas.listar(db)],
   ['POST', /^\/api\/contas$/, async (p) => contas.salvar(db, cofre, await lerCorpo(p.req))],
-  ['DELETE', /^\/api\/contas\/([a-z0-9-]+)$/, (p) => { contas.apagar(db, p.m[1]); return { ok: true }; }],
-  ['POST', /^\/api\/contas\/([a-z0-9-]+)\/ler$/, async (p) => lerConta(db, cofre, p.m[1]).catch((e: Error) => { throw new ErroDeEntrada(e.message, 502); })],
-  ['POST', /^\/api\/contas\/([a-z0-9-]+)\/whatsapp$/, async (p) => whatsapp.pedir(db, p.m[1], await lerCorpo(p.req))],
+  [
+    'DELETE',
+    /^\/api\/contas\/([a-z0-9-]+)$/,
+    (p) => {
+      contas.apagar(db, p.m[1]);
+      return { ok: true };
+    },
+  ],
+  [
+    'POST',
+    /^\/api\/contas\/([a-z0-9-]+)\/ler$/,
+    async (p) =>
+      lerConta(db, cofre, p.m[1]).catch((e: Error) => {
+        throw new ErroDeEntrada(e.message, 502);
+      }),
+  ],
+  [
+    'POST',
+    /^\/api\/contas\/([a-z0-9-]+)\/whatsapp$/,
+    async (p) => whatsapp.pedir(db, p.m[1], await lerCorpo(p.req)),
+  ],
 
-  ['GET', /^\/api\/conectores$/, () => cfg.conectores.map(({ id, nome, espaco, tipo }) => ({ id, nome, espaco, tipo }))],
+  [
+    'GET',
+    /^\/api\/conectores$/,
+    () => cfg.conectores.map(({ id, nome, espaco, tipo }) => ({ id, nome, espaco, tipo })),
+  ],
   ['GET', /^\/api\/tokens$/, () => acesso.listarTokens(db)],
-  ['POST', /^\/api\/tokens$/, async (p) => { const b = await lerCorpo(p.req); return acesso.criarToken(db, b.nome, b.escopo); }],
-  ['DELETE', /^\/api\/tokens\/(\d+)$/, (p) => { acesso.revogarToken(db, id(p)); return { ok: true }; }],
+  [
+    'POST',
+    /^\/api\/tokens$/,
+    async (p) => {
+      const b = await lerCorpo(p.req);
+      return acesso.criarToken(db, b.nome, b.escopo);
+    },
+  ],
+  [
+    'DELETE',
+    /^\/api\/tokens\/(\d+)$/,
+    (p) => {
+      acesso.revogarToken(db, id(p));
+      return { ok: true };
+    },
+  ],
 ];
 
-function casar<T extends [string, RegExp, ...unknown[]]>(lista: T[], metodo: string, caminho: string): [T, RegExpMatchArray] | null {
+function casar<T extends [string, RegExp, ...unknown[]]>(
+  lista: T[],
+  metodo: string,
+  caminho: string,
+): [T, RegExpMatchArray] | null {
   for (const r of lista) {
     const m = caminho.match(r[1]);
     if (m && r[0] === metodo) return [r, m];
@@ -203,7 +453,8 @@ function casar<T extends [string, RegExp, ...unknown[]]>(lista: T[], metodo: str
   return null;
 }
 
-const portador = (req: IncomingMessage): string => String(req.headers.authorization || '').match(/^Bearer\s+(\S+)$/i)?.[1] ?? '';
+const portador = (req: IncomingMessage): string =>
+  String(req.headers.authorization || '').match(/^Bearer\s+(\S+)$/i)?.[1] ?? '';
 
 async function atender(req: IncomingMessage, res: ServerResponse) {
   const host = String(req.headers.host || '').toLowerCase();
@@ -219,16 +470,21 @@ async function atender(req: IncomingMessage, res: ServerResponse) {
 
   const pub = casar(PUBLICAS, metodo, url.pathname);
   if (pub) {
-    if (metodo !== 'GET' && req.headers['x-central'] !== '1') return json(res, 403, { erro: 'sem cabeçalho X-Central' });
+    if (metodo !== 'GET' && req.headers['x-central'] !== '1')
+      return json(res, 403, { erro: 'sem cabeçalho X-Central' });
     return json(res, 200, await pub[0][2]({ req, res, url, ip, m: pub[1] }));
   }
 
   const ing = casar(INGESTAO, metodo, url.pathname);
   if (ing) {
     const p = { req, res, url, ip, m: ing[1] };
-    if (acesso.travado(db, ip)) return json(res, 429, { erro: 'muitas tentativas erradas; espere 15 minutos' });
+    if (acesso.travado(db, ip))
+      return json(res, 429, { erro: 'muitas tentativas erradas; espere 15 minutos' });
     const t = acesso.conferirToken(db, portador(req));
-    if (!t) { acesso.anotarFalha(db, ip); return json(res, 401, { erro: 'token inválido' }); }
+    if (!t) {
+      acesso.anotarFalha(db, ip);
+      return json(res, 401, { erro: 'token inválido' });
+    }
     if (t.escopo !== ing[0][2](p)) return json(res, 403, { erro: 'este token não vale para esta fonte' });
     return json(res, 200, await ing[0][3](p));
   }
@@ -238,14 +494,16 @@ async function atender(req: IncomingMessage, res: ServerResponse) {
   const [[, , fn, aceitaLeitura], m] = r;
   const logado = acesso.sessaoValida(db, cookie(req));
   if (!logado) {
-    if (portador(req) && acesso.travado(db, ip)) return json(res, 429, { erro: 'muitas tentativas erradas; espere 15 minutos' });
+    if (portador(req) && acesso.travado(db, ip))
+      return json(res, 429, { erro: 'muitas tentativas erradas; espere 15 minutos' });
     const t = portador(req) ? acesso.conferirToken(db, portador(req)) : null;
     if (!(t && t.escopo === 'leitura' && aceitaLeitura && metodo === 'GET')) {
       if (portador(req) && !t) acesso.anotarFalha(db, ip);
       return json(res, 401, { erro: 'entre na Central' });
     }
   }
-  if (metodo !== 'GET' && req.headers['x-central'] !== '1') return json(res, 403, { erro: 'sem cabeçalho X-Central' });
+  if (metodo !== 'GET' && req.headers['x-central'] !== '1')
+    return json(res, 403, { erro: 'sem cabeçalho X-Central' });
   return json(res, 200, await fn({ req, res, url, ip, m }));
 }
 
@@ -266,10 +524,17 @@ servidor.headersTimeout = 15e3;
 servidor.requestTimeout = 30e3;
 
 servidor.listen(cfg.porta, cfg.escuta, () => {
-  console.log(`central em http://localhost:${cfg.porta}  (${espacos.listar(db).length} espaços, ${cfg.conectores.length} fontes, `
-    + `${contas.listar(db).length} contas${acesso.configurado(db) ? '' : ', AINDA SEM DONO: rode "node src/admin.ts convite"'})`);
+  console.log(
+    `central em http://localhost:${cfg.porta}  (${espacos.listar(db).length} espaços, ${cfg.conectores.length} fontes, ` +
+      `${contas.listar(db).length} contas${acesso.configurado(db) ? '' : ', AINDA SEM DONO: rode "node src/admin.ts convite"'})`,
+  );
 });
 
-const desligar = () => { coletor?.parar(); servidor.close(); db.close(); process.exit(0); };
+const desligar = () => {
+  coletor?.parar();
+  servidor.close();
+  db.close();
+  process.exit(0);
+};
 process.on('SIGTERM', desligar);
 process.on('SIGINT', desligar);

@@ -1,0 +1,21 @@
+{
+  "habilitado": false,
+  "porta": 7801,
+  "central": "https://central.example/",
+  "segredoHash": "GERE_COM_O_COMANDO_HASH",
+  "bancoLocal": "/CAMINHO/PRIVADO/central-local/trabalho.sqlite3",
+  "espacosLocais": [
+    { "id": "trabalho", "nome": "Trabalho local", "cor": "#356859" }
+  ],
+  "timeoutMs": 8000,
+  "limiteBytes": 2000000,
+  "fontes": [
+    {
+      "id": "ops",
+      "nome": "Operação local",
+      "url": "http://127.0.0.1:3000/",
+      "tokenEnv": "CENTRAL_OPS_TOKEN_LEITURA",
+      "categorias": ["notas", "chamados", "transmissoes", "pedidos", "acompanhamento"]
+    }
+  ]
+}

@@ -4,3 +4,6 @@ data/
 config/local.json
 config/chave
 whatsapp/sessao/
+.e2e/
+test-results/
+playwright-report/

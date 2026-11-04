@@ -24,6 +24,7 @@ conversas e fontes, e um não enxerga o outro.
 | **Hoje** | Quatro números que se clicam (para responder, esperando, atrasadas, para hoje), a fila de quem espera resposta com há quanto tempo, as tarefas do dia com caixinha de concluir e um cartão por espaço com o que cada sistema ligado pede. |
 | **Caixa** | E-mail e WhatsApp juntos, no jeito de um app de mensagens: lista à esquerda, conversa em balões à direita. **Responder** abre o WhatsApp ou o Gmail já naquela conversa (a Central não envia nada); **Resolvido** passa para a próxima, com desfazer. Respondeu pelo celular, a conversa vai sozinha para “esperando”. Nota interna, virar tarefa, mover de espaço e atalhos de teclado (J/K/E/R/T). |
 | **Tarefas** | Criar com Enter, concluir na caixinha, detalhar numa gaveta lateral: situação, com quem está, quando e anotações datadas. |
+| **Projetos** | Objetivo, próximo passo, prazo, notas e tarefas em lista ou quadro. As mensagens relacionadas acompanham o projeto. |
 | **Pessoas** | Uma pessoa com todos os canais (e-mail, WhatsApp, telefone), em um ou mais espaços. A conversa nova se liga à pessoa pelo e-mail ou pelo número, mesmo quando o celular vem sem o 9. |
 | **Busca** | Em mensagens, tarefas e pessoas, sem acento e sem diferença de maiúscula. |
 | **Conexões** | Caixas IMAP, números de WhatsApp, painéis que mandam resumo, tokens e as sessões abertas. |
@@ -69,6 +70,50 @@ código. Daí em diante, entrar pede **senha e código**.
 
 Testes: `node --test test/*.test.ts`. Os testes do WhatsApp rodam com
 `cd whatsapp && npm ci && cd .. && node --test whatsapp/*.test.ts`.
+
+### Organizar o trabalho
+
+Escolha um espaço e crie um projeto. Uma tarefa pode ser capturada com Enter e
+organizada depois no filtro **Sem projeto**. Na ficha, separe o dia planejado,
+o prazo de entrega e o lembrete; use descrição, prioridade e checklist quando
+precisar. A vista Quadro usa as mesmas tarefas da lista.
+
+Na Caixa, cada mensagem oferece **Criar tarefa** ou **Vincular tarefa**. Assim,
+um e-mail e um WhatsApp podem complementar a mesma tarefa daquele espaço.
+**Mensagens de origem**, na tarefa, abre a conversa no trecho correto. Criar
+tarefa não envia resposta nem conclui a conversa.
+
+Use **A triar**, **Responder**, **Esperando**, **Cobrar**, **Adiados** e
+**Todos / Arquivados** para processar entradas. Adiar oculta a pendência até
+a data escolhida; nova mensagem reabre. Marcar visto ou arquivar altera apenas
+a Central. Filtros por canal, conta e projeto podem ser salvos no navegador.
+O histórico da pessoa aparece na sua ficha, limitado ao espaço selecionado.
+
+### Trabalho local na mesma interface
+
+O [gateway local](docs/operacao-local.md) oferece uma entrada autenticada no
+notebook com **Trabalho local** e **Central pessoal**. A operação aparece
+dentro da Central; projetos e tarefas locais usam outro banco SQLite e nunca
+são enviados à VPS. Trocar a origem troca também o conjunto de espaços:
+“Todos” agrega somente a origem atual. Detalhes externos exigem acesso privado
+configurado; não há publicação automática dos sistemas locais.
+
+O gateway permanece desativado até configurar fontes e autenticação. A versão
+pública mostra apenas o resumo permitido e informa quando os detalhes precisam
+da entrada local. Nenhuma integração real é habilitada pelos testes.
+
+### Testar no navegador
+
+```sh
+npm ci
+npx playwright install chromium
+npm run test:e2e
+```
+
+Os testes iniciam Central, gateway e fonte fictícia com bancos descartáveis.
+Exercitam mensagem → tarefa → projeto → origem, celular, operação local e
+concorrência. O CI também executa esses percursos e guarda traces de falhas
+somente com dados fictícios.
 
 ## Segurança
 
