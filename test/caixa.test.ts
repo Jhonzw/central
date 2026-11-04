@@ -123,3 +123,20 @@ test('hoje mostra as conversas pedindo resposta por espaço', async () => {
   assert.equal(p.conversas.responder, 1);
   assert.equal(h.espacos.find((e) => e.espaco.id === 'loja')!.conversas.responder, 0);
 });
+
+test('responder em: WhatsApp pelo número, Gmail pela mensagem, outro e-mail por rascunho', () => {
+  const db = banco();
+  caixa.receber(db, msg());
+  const wa = caixa.listar(db)[0] as { id: number };
+  assert.deepEqual(caixa.obter(db, wa.id).responder, { app: 'WhatsApp', url: 'https://wa.me/556299990000' });
+
+  contas.salvar(db, cofre, { id: 'gmail', tipo: 'email', nome: 'Gmail', espaco_id: 'pessoal', host: 'imap.gmail.com', usuario: 'eu@gmail.com', senha: 'x' });
+  caixa.receber(db, { conta: 'gmail', chave: '<a1@mail>', titulo: 'Proposta', endereco: 'ana@cliente.com', autor: 'Ana', externo: '<a1@mail>', de_mim: false, assunto: 'Proposta', texto: 'oi', em: '2026-11-03T11:00:00Z' });
+  const g = caixa.listar(db, { conta: 'gmail' })[0] as { id: number };
+  assert.equal(caixa.obter(db, g.id).responder?.url, 'https://mail.google.com/mail/u/eu%40gmail.com/#search/rfc822msgid%3Aa1%40mail');
+
+  contas.salvar(db, cofre, { id: 'outro', tipo: 'email', nome: 'Outro', espaco_id: 'pessoal', host: 'imap.exemplo.com.br', usuario: 'eu@exemplo.com.br', senha: 'x' });
+  caixa.receber(db, { conta: 'outro', chave: '<b1@mail>', titulo: 'Re: Orçamento', endereco: 'bia@cliente.com', autor: 'Bia', externo: '<b1@mail>', de_mim: false, assunto: 'Re: Orçamento', texto: 'oi', em: '2026-11-03T12:00:00Z' });
+  const o = caixa.listar(db, { conta: 'outro' })[0] as { id: number };
+  assert.equal(caixa.obter(db, o.id).responder?.url, 'mailto:bia@cliente.com?subject=Re%3A%20Or%C3%A7amento');
+});

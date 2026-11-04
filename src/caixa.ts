@@ -120,7 +120,24 @@ export function obter(db: Banco, id: number) {
   const c = db.prepare(`${SELECT_CONVERSA} WHERE c.id = ?`).get(id);
   if (!c) throw new ErroDeEntrada(`conversa ${id} não existe`, 404);
   const mensagens = db.prepare('SELECT id, de_mim, autor, assunto, texto, em FROM mensagens WHERE conversa_id = ? ORDER BY em DESC, id DESC LIMIT 100').all(id).reverse();
-  return { ...montar(c), mensagens };
+  return { ...montar(c), mensagens, responder: responderEm(db, c as Record<string, unknown>) };
+}
+
+// Onde responder: a Central não envia nada, mas abre a conversa no app certo.
+// WhatsApp pelo número; Gmail direto na mensagem (pelo Message-ID); outro
+// e-mail, um rascunho de resposta no programa de e-mail do aparelho.
+export function responderEm(db: Banco, c: Record<string, unknown>): { app: string; url: string } | null {
+  const endereco = String(c.endereco ?? '');
+  if (c.canal === 'whatsapp') return /^\d{8,15}$/.test(endereco) ? { app: 'WhatsApp', url: `https://wa.me/${endereco}` } : null;
+  const conta = obterConta(db, String(c.conta_id));
+  const ultima = db.prepare('SELECT externo, assunto FROM mensagens WHERE conversa_id = ? AND de_mim = 0 ORDER BY em DESC, id DESC LIMIT 1').get(c.id as number) as
+    { externo: string; assunto: string } | undefined;
+  const msgid = ultima?.externo.match(/^<([^<>\s]+)>$/)?.[1];
+  if (conta.config.host === 'imap.gmail.com' && msgid && conta.config.usuario)
+    return { app: 'Gmail', url: `https://mail.google.com/mail/u/${encodeURIComponent(conta.config.usuario)}/#search/rfc822msgid%3A${encodeURIComponent(msgid)}` };
+  if (!/^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(endereco)) return null;
+  const assunto = String(ultima?.assunto || c.titulo || '').replace(/^(\s*(re|res|fw|fwd|enc)\s*:\s*)+/i, '');
+  return { app: 'e-mail', url: `mailto:${encodeURIComponent(endereco).replace('%40', '@')}?subject=${encodeURIComponent('Re: ' + assunto)}` };
 }
 
 export function alterar(db: Banco, id: number, dados: Record<string, unknown>) {

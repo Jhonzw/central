@@ -8,7 +8,7 @@ o WhatsApp misturando cliente com família. A Central junta tudo numa tela, mas
 separado em **espaços**: cada espaço tem as próprias tarefas, pessoas,
 conversas e fontes, e um não enxerga o outro.
 
-![A tela Hoje: um bloco por espaço, com o que venceu, as conversas que pedem resposta e o que cada sistema ligado pede](docs/img/hoje.png)
+![A tela Hoje: quatro números (para responder, esperando, atrasadas, para hoje), a fila de quem espera resposta, as tarefas do dia e um cartão por espaço](docs/img/hoje.png)
 
 [![testes](https://github.com/Jhonzw/central/actions/workflows/testes.yml/badge.svg)](https://github.com/Jhonzw/central/actions/workflows/testes.yml)
 ![Node 24](https://img.shields.io/badge/node-24-3c873a)
@@ -21,17 +21,19 @@ conversas e fontes, e um não enxerga o outro.
 
 | | |
 |---|---|
-| **Hoje** | Um bloco por espaço com o que venceu, o que é para hoje, as conversas pedindo resposta e o que cada sistema ligado diz que pede ação. |
-| **Caixa** | E-mail e WhatsApp por espaço, em quatro estados: responder, esperando, resolvidas e arquivadas. Cada conversa tem nota interna, vira tarefa num clique e cai sozinha no espaço da pessoa. |
-| **Tarefas** | Status, com quem está, próxima data e anotações datadas. |
+| **Hoje** | Quatro números que se clicam (para responder, esperando, atrasadas, para hoje), a fila de quem espera resposta com há quanto tempo, as tarefas do dia com caixinha de concluir e um cartão por espaço com o que cada sistema ligado pede. |
+| **Caixa** | E-mail e WhatsApp juntos, no jeito de um app de mensagens: lista à esquerda, conversa em balões à direita. **Responder** abre o WhatsApp ou o Gmail já naquela conversa (a Central não envia nada); **Resolvido** passa para a próxima, com desfazer. Respondeu pelo celular, a conversa vai sozinha para “esperando”. Nota interna, virar tarefa, mover de espaço e atalhos de teclado (J/K/E/R/T). |
+| **Tarefas** | Criar com Enter, concluir na caixinha, detalhar numa gaveta lateral: situação, com quem está, quando e anotações datadas. |
 | **Pessoas** | Uma pessoa com todos os canais (e-mail, WhatsApp, telefone), em um ou mais espaços. A conversa nova se liga à pessoa pelo e-mail ou pelo número, mesmo quando o celular vem sem o 9. |
 | **Busca** | Em mensagens, tarefas e pessoas, sem acento e sem diferença de maiúscula. |
 | **Conexões** | Caixas IMAP, números de WhatsApp, painéis que mandam resumo, tokens e as sessões abertas. |
 | **MCP** | Um assistente de IA consulta a Central direto da conversa, só lendo. |
 
+![A caixa: lista de conversas com avatar, canal e espaço; à direita a conversa em balões, o botão Responder no WhatsApp, Resolvido e a nota interna](docs/img/caixa.png)
+
 <table><tr>
-<td><img src="docs/img/caixa.png" alt="A caixa com conversas de e-mail e WhatsApp, a ficha aberta com as mensagens e a nota interna"></td>
-<td><img src="docs/img/conexoes.png" alt="Conexões: caixas de e-mail, WhatsApp, painéis, tokens e sessões"></td>
+<td width="32%"><img src="docs/img/celular-conversa.png" alt="No celular: a conversa aberta com Responder no WhatsApp em destaque e a barra de abas embaixo"></td>
+<td><img src="docs/img/conexoes.png" alt="Conexões: WhatsApp, e-mail, painéis e segurança, cada um com a luz de estado"></td>
 </tr></table>
 
 ## Princípios
