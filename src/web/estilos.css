@@ -612,16 +612,11 @@ label > textarea {
   color: var(--mal);
 }
 .rapida {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 8px;
-  padding: 12px 16px;
+  padding: 16px;
   border-bottom: 1px solid var(--fio);
+  min-width: 0;
 }
-.rapida select {
-  width: auto;
-  max-width: 130px;
-}
+
 .tarefa {
   display: flex;
   gap: 12px;
@@ -1589,16 +1584,7 @@ details.adicionar .form {
   .entrada-marca .pequeno {
     display: none;
   }
-  .rapida {
-    grid-template-columns: 1fr 1fr;
-  }
-  .rapida input[name='titulo'] {
-    grid-column: 1 / -1;
-  }
-  .rapida select {
-    max-width: none;
-    width: 100%;
-  }
+
   .duas-col {
     grid-template-columns: 1fr;
   }
@@ -1716,9 +1702,7 @@ details.adicionar .form {
   width: 100%;
   font-size: 12px;
 }
-.rapida {
-  grid-template-columns: minmax(150px, 1fr) minmax(90px, 130px) minmax(110px, 180px) minmax(100px, 150px) auto;
-}
+
 .origens {
   display: grid;
   gap: 8px;
@@ -1985,17 +1969,7 @@ summary:focus-visible {
   outline: 2px solid var(--acento);
   outline-offset: 3px;
 }
-@media (max-width: 1100px) {
-  .rapida {
-    grid-template-columns: 1fr 1fr;
-  }
-  .rapida input[name='titulo'] {
-    grid-column: 1/-1;
-  }
-  .rapida button {
-    justify-content: center;
-  }
-}
+
 @media (max-width: 900px) {
   .caixa {
     grid-template-columns: minmax(0, 1fr);
@@ -2053,5 +2027,749 @@ summary:focus-visible {
   .pagina {
     padding-left: 16px;
     padding-right: 16px;
+  }
+}
+.rapida-entrada {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: stretch;
+}
+.rapida-entrada input {
+  width: 100%;
+  min-width: 0;
+}
+.rapida-entrada .btn {
+  justify-content: center;
+  padding-inline: 16px;
+}
+.rapida-campos {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+.rapida-campos label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: var(--apagado);
+  font-size: 11px;
+  font-weight: 500;
+}
+.rapida-campos select {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--suave);
+}
+.hoje {
+  max-width: 1480px;
+  padding: 32px 34px 70px;
+}
+.hoje-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+.hoje-data {
+  margin: 0 0 7px;
+  color: var(--apagado);
+  font-size: 12px;
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
+}
+.hoje-cab h1 {
+  margin: 0;
+  font-size: clamp(26px, 2.5vw, 36px);
+  font-weight: 550;
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+}
+.hoje-resumo {
+  color: var(--suave);
+  margin: 9px 0 0;
+  font-size: 14px;
+}
+.hoje-contexto {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.hoje-contexto .chip {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hoje-metricas {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.hoje-metrica {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--sup);
+  border: 1px solid var(--fio);
+  border-radius: 12px;
+  color: var(--tinta);
+  padding: 17px 16px;
+  text-align: left;
+}
+.hoje-metrica:hover {
+  border-color: var(--fio2);
+  background: var(--sup2);
+}
+.hoje-metrica-icone {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--suave);
+  flex-shrink: 0;
+}
+.hoje-metrica-texto {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.hoje-metrica-texto > span {
+  font-size: 13px;
+  font-weight: 500;
+}
+.hoje-metrica-texto small {
+  color: var(--apagado);
+  font-size: 11px;
+}
+.hoje-metrica > b {
+  margin-left: auto;
+  font: 500 29px/1 var(--sans);
+  letter-spacing: -0.04em;
+}
+.hoje-metrica > .ico {
+  width: 12px;
+  opacity: 0.4;
+  flex-shrink: 0;
+}
+.hoje-seta {
+  transform: rotate(180deg);
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+.hoje-metrica.urgente {
+  border-color: rgba(248, 113, 113, 0.18);
+  background: linear-gradient(125deg, rgba(248, 113, 113, 0.055), var(--sup));
+}
+.hoje-metrica.urgente .hoje-metrica-icone,
+.hoje-metrica.urgente > b {
+  color: var(--mal);
+}
+.hoje-metrica.destaque .hoje-metrica-icone,
+.hoje-metrica.destaque > b {
+  color: var(--acento);
+}
+.hoje-metrica.sem-pendencia > b {
+  color: var(--apagado);
+}
+.hoje-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.58fr);
+  align-items: start;
+  gap: 20px;
+}
+.hoje-layout > * {
+  min-width: 0;
+}
+.hoje-painel-cab {
+  padding: 20px 22px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.hoje-painel-cab > div {
+  min-width: 0;
+}
+.hoje-painel-cab h2 {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.3;
+  margin: 5px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.hoje-painel-cab > .ico {
+  color: var(--apagado);
+}
+.hoje-sobre {
+  font: 500 10px/1.4 var(--mono);
+  color: var(--apagado);
+  letter-spacing: 0.09em;
+}
+.hoje-contagem {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--fio2);
+  border-radius: 6px;
+  font: 500 11px var(--mono);
+  color: var(--suave);
+}
+.hoje-captura {
+  margin: 2px 22px 18px;
+  padding: 16px;
+  background: var(--chao);
+  border: 1px solid var(--fio);
+  border-radius: 10px;
+}
+.hoje-captura > p {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--suave);
+}
+.hoje-captura .rapida {
+  padding: 0;
+  border: 0;
+}
+.hoje-captura > small {
+  color: var(--apagado);
+  font-size: 10px;
+  display: block;
+  margin-top: 10px;
+}
+.hoje-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0 22px;
+  border-bottom: 1px solid var(--fio);
+  overflow-x: auto;
+}
+.hoje-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: 1;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--suave);
+  font-size: 12px;
+  white-space: nowrap;
+  padding: 10px 8px 12px;
+}
+.hoje-tabs button[aria-pressed='true'] {
+  color: var(--acento);
+  border-bottom-color: var(--acento);
+}
+.hoje-tabs button > span {
+  font: 500 10px var(--mono);
+  border-radius: 4px;
+  padding: 2px 5px;
+  background: var(--sup2);
+  color: var(--apagado);
+}
+.hoje-grupo {
+  padding: 16px 0 4px;
+}
+.hoje-grupo + .hoje-grupo {
+  border-top: 1px solid var(--fio);
+}
+.hoje-grupo-cab {
+  padding: 0 22px 8px;
+}
+.hoje-grupo-cab h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.hoje-grupo-cab h3 > span:last-child {
+  color: var(--apagado);
+  font: 500 10px var(--mono);
+  margin-left: auto;
+}
+.hoje-grupo-cab p {
+  margin: 3px 0 0 14px;
+  color: var(--apagado);
+  font-size: 11px;
+}
+.hoje-ponto {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--acento);
+}
+.hoje-grupo.atrasadas .hoje-ponto {
+  background: var(--mal);
+}
+.hoje-grupo.lembretes .hoje-ponto {
+  background: var(--aviso);
+}
+.hoje-agenda .tarefa {
+  padding: 12px 22px;
+  border-top: 0;
+}
+.hoje-agenda .tarefa .txt {
+  min-width: 0;
+}
+.hoje-agenda .tarefa .t {
+  font-size: 14px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.hoje-agenda .tarefa .meta {
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 5px;
+}
+.hoje-agenda .tarefa .meta .chip {
+  font-size: 10px;
+}
+.hoje-agenda .chip,
+.hoje-projeto .chip {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.hoje-agenda .tarefa .quando {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+.hoje-acompanhamento {
+  display: grid;
+  gap: 18px;
+}
+.hoje-painel-desc {
+  margin: 0;
+  padding: 0 22px 12px;
+  font-size: 11px;
+  color: var(--apagado);
+}
+.hoje-conversa {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 14px 20px;
+  text-align: left;
+  border: 0;
+  border-top: 1px solid var(--fio);
+  color: var(--tinta);
+  background: none;
+}
+.hoje-conversa:hover {
+  background: var(--sup2);
+}
+.hoje-conversa .avatar {
+  width: 34px;
+  height: 34px;
+  font-size: 11px;
+  border-radius: 10px;
+}
+.hoje-conversa .avatar .canal {
+  width: 17px;
+  height: 17px;
+}
+.hoje-conversa-texto {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 3px;
+}
+.hoje-conversa-texto > strong {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hoje-conversa-texto > span {
+  color: var(--suave);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hoje-conversa-texto > small {
+  font-size: 10px;
+  color: var(--apagado);
+}
+.hoje-conversa > .idade {
+  font-size: 10px;
+}
+.hoje-ver-todos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  width: 100%;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--fio);
+  color: var(--acento);
+  font-size: 12px;
+}
+.hoje-nota-vazia {
+  padding: 0 22px 20px;
+  font-size: 12px;
+  color: var(--suave);
+  line-height: 1.6;
+}
+.hoje-vazio {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 36px 24px;
+}
+.hoje-vazio > .ico {
+  box-sizing: content-box;
+  padding: 11px;
+  width: 20px;
+  height: 20px;
+  color: var(--acento);
+  border: 1px solid rgba(94, 234, 212, 0.15);
+  background: rgba(94, 234, 212, 0.04);
+  border-radius: 14px;
+}
+.hoje-vazio h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+}
+.hoje-vazio p {
+  color: var(--apagado);
+  font-size: 12px;
+  max-width: 270px;
+  margin: 0;
+}
+.hoje-vazio .btn {
+  margin-top: 6px;
+  font-size: 12px;
+}
+.hoje-vazio.compacto {
+  padding: 20px;
+}
+.hoje-secao-cab {
+  margin: 28px 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.hoje-secao-cab h2 {
+  margin: 4px 0 0;
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.hoje-projetos-grade {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.hoje-projeto {
+  border-top: 2px solid var(--cor);
+  color: var(--tinta);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 18px;
+  text-align: left;
+}
+.hoje-projeto:hover {
+  background: var(--sup2);
+}
+.hoje-projeto .meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.hoje-projeto h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.hoje-projeto p {
+  margin: 0;
+  color: var(--suave);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.hoje-projeto-rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 4px;
+  color: var(--apagado);
+  font-size: 11px;
+}
+.hoje-sem-passo {
+  color: var(--aviso);
+  font-size: 10px;
+}
+.hoje-projeto-vazio {
+  grid-column: 1/-1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  border: 1px dashed var(--fio2);
+  border-radius: var(--raio);
+  padding: 20px 22px;
+}
+.hoje-projeto-vazio > div {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.hoje-projeto-vazio .ico {
+  color: var(--apagado);
+}
+.hoje-projeto-vazio span {
+  display: grid;
+  gap: 4px;
+}
+.hoje-projeto-vazio b {
+  font-size: 13px;
+  font-weight: 500;
+}
+.hoje-projeto-vazio small {
+  color: var(--apagado);
+  font-size: 12px;
+}
+.hoje-espacos-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
+  gap: 12px;
+}
+.hoje-espaco {
+  min-width: 0;
+}
+.hoje-espaco-topo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 16px 18px 10px;
+  background: none;
+  border: 0;
+  color: var(--tinta);
+  text-align: left;
+}
+.hoje-espaco-topo h3 {
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.hoje-espaco-topo > .ico {
+  width: 13px;
+  color: var(--apagado);
+}
+.hoje-espaco-resumo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 14px;
+  padding: 0 18px 16px;
+  color: var(--apagado);
+  font-size: 11px;
+}
+.hoje-espaco-resumo b {
+  color: var(--suave);
+  font-weight: 500;
+}
+.hoje-fonte-resumo {
+  border-top: 1px solid var(--fio);
+  padding: 10px 18px;
+  font-size: 12px;
+}
+.hoje-fonte-resumo p {
+  color: var(--suave);
+  margin: 5px 0;
+}
+.hoje-fonte-resumo p.urgente b {
+  color: var(--aviso);
+}
+.hoje-fonte-resumo .btn {
+  padding-left: 0;
+  margin-top: 5px;
+  font-size: 11px;
+}
+@media (max-width: 1250px) {
+  .hoje {
+    padding-inline: 26px;
+  }
+  .hoje-metrica {
+    gap: 8px;
+    padding: 14px 12px;
+  }
+  .hoje-metrica-texto small {
+    display: none;
+  }
+  .hoje-metrica > .ico {
+    display: none;
+  }
+  .hoje-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.7fr);
+  }
+}
+@media (max-width: 1100px) {
+  .hoje-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hoje-acompanhamento {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+  .hoje-projetos-grade {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .hoje-contexto .chip {
+    display: none;
+  }
+}
+@media (max-width: 600px) {
+  .hoje {
+    padding: 22px 16px 90px;
+  }
+  .hoje-cab {
+    align-items: start;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .hoje-cab h1 {
+    font-size: 27px;
+  }
+  .hoje-resumo {
+    font-size: 12px;
+  }
+  .hoje-contexto .btn {
+    padding: 6px;
+  }
+  .hoje-contexto .btn span {
+    display: none;
+  }
+  .hoje-metricas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+    margin-bottom: 18px;
+  }
+  .hoje-metrica {
+    padding: 12px 10px;
+    gap: 8px;
+  }
+  .hoje-metrica-icone {
+    width: 29px;
+    height: 29px;
+    border-radius: 8px;
+  }
+  .hoje-metrica-icone .ico {
+    width: 16px;
+  }
+  .hoje-metrica-texto > span {
+    font-size: 11px;
+  }
+  .hoje-metrica > b {
+    font-size: 24px;
+  }
+  .hoje-painel-cab {
+    padding: 17px 16px 13px;
+    gap: 8px;
+  }
+  .hoje-painel-cab h2 {
+    font-size: 17px;
+  }
+  .hoje-painel-cab > .btn {
+    font-size: 10px;
+    gap: 4px;
+    padding: 5px 0;
+  }
+  .hoje-captura {
+    margin-inline: 14px;
+    padding: 12px;
+  }
+  .rapida-entrada {
+    gap: 7px;
+  }
+  .rapida-entrada .btn {
+    padding-inline: 11px;
+  }
+  .rapida-entrada .btn > span {
+    display: none;
+  }
+  .rapida-campos {
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .rapida-campos label:last-child {
+    grid-column: 1/-1;
+  }
+  .hoje-tabs {
+    margin-inline: 14px;
+    gap: 0;
+  }
+  .hoje-tabs button {
+    font-size: 11px;
+    padding-inline: 5px;
+    gap: 4px;
+  }
+  .hoje-tabs button > span {
+    font-size: 9px;
+    padding: 1px 3px;
+  }
+  .hoje-grupo-cab {
+    padding-inline: 16px;
+  }
+  .hoje-agenda .tarefa {
+    padding-inline: 16px;
+    gap: 9px;
+  }
+  .hoje-acompanhamento {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hoje-projetos-grade {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hoje-projeto-vazio {
+    padding: 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .hoje-projeto-vazio .btn {
+    align-self: start;
+    font-size: 12px;
+  }
+  .hoje-secao-cab h2 {
+    font-size: 18px;
+  }
+  .hoje-secao-cab > .btn {
+    font-size: 11px;
   }
 }

@@ -277,7 +277,7 @@ async function carregarAba(forcar) {
     if (['tarefas', 'hoje', 'espaco'].includes(UI.aba))
       novos.tarefas = await api(
         'GET',
-        `/api/tarefas?${qs}${UI.filtro === 'todas' ? '&todas' : ''}${UI.filtroProjeto === 'sem' ? '&sem_projeto=1' : UI.filtroProjeto ? '&projeto=' + UI.filtroProjeto : ''}`,
+        `/api/tarefas?${qs}${UI.aba === 'tarefas' && UI.filtro === 'todas' ? '&todas' : ''}${UI.aba !== 'tarefas' ? '' : UI.filtroProjeto === 'sem' ? '&sem_projeto=1' : UI.filtroProjeto ? '&projeto=' + UI.filtroProjeto : ''}`,
       );
     if (['pessoas', 'tarefas', 'espaco'].includes(UI.aba))
       novos.pessoas = await api(
@@ -312,6 +312,7 @@ async function carregarAba(forcar) {
       novos.busca = await api('GET', `/api/busca?q=${encodeURIComponent(UI.buscaTudo)}${qs ? '&' + qs : ''}`);
     if (sequencia !== UI.carga) return;
     Object.assign(D, novos);
+    if (novos.hoje) UI.hojeEm = Date.now();
     D.erro = null;
   } catch (e) {
     if (sequencia !== UI.carga) return;
@@ -348,91 +349,25 @@ function desenhar() {
 }
 
 // ---------- Hoje ----------
-function saudacao() {
-  const h = Number(new Date().toLocaleString('pt-BR', { hour: 'numeric', hour12: false, timeZone: FUSO }));
-  return h < 5 ? 'Boa madrugada' : h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
-}
 function desenharHoje() {
-  const h = D.hoje;
-  if (!h) return `<div class="pagina">${faixaErro() || '<div class="vazio">Montando o seu dia…</div>'}</div>`;
-  const c = contagens();
-  const doEspaco = (e) => UI.espaco === 'todos' || e.espaco.id === UI.espaco;
-  const esp = h.espacos.filter(doEspaco);
-  const data = new Date().toLocaleDateString('pt-BR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    timeZone: FUSO,
-  });
-  const fila = esp
-    .flatMap((e) => e.conversas.primeiras)
-    .sort((a, b) => (a.pendente_desde || a.ultima_em).localeCompare(b.pendente_desde || b.ultima_em))
-    .slice(0, 8);
-  const tarefas = [
-    ...new Map(
-      esp.flatMap((e) => [...e.vencidas, ...e.deHoje, ...(e.lembretes || [])]).map((t) => [t.id, t]),
-    ).values(),
-  ];
-  const numero = (n, rotulo, icone, alvo, classe) =>
-    `<button class="numero toque ${n ? classe : 'zero'}" ${alvo}>${ico(icone)}<b>${n}</b><span>${rotulo}</span></button>`;
-  const resumo =
-    c.responder || tarefas.length
-      ? `${c.responder ? plural(c.responder, 'pessoa espera', 'pessoas esperam') + ' resposta' : 'Ninguém esperando resposta'}${tarefas.length ? ` e ${plural(tarefas.length, 'tarefa é', 'tarefas são')} para hoje` : ''}.`
-      : 'Tudo em dia. Nada pedindo você agora.';
-  return `<div class="pagina">
-    <div class="cab"><div><h1>${saudacao()}${D.vocab.nome ? ', ' + esc(D.vocab.nome.split(' ')[0]) : ''}.</h1><p>${data[0].toUpperCase() + data.slice(1)} · ${resumo}</p></div>
-      <button class="btn fantasma" data-atualizar title="Ler tudo de novo">${ico('atualizar')}Atualizar</button></div>
-    ${faixaErro()}
-    <div class="numeros">
-      ${numero(c.responder, 'para responder', 'caixa', 'data-ir-caixa="responder"', 'quente')}
-      ${numero(c.esperando, 'esperando o outro lado', 'relogio', 'data-ir-caixa="esperando"', '')}
-      ${numero(c.atrasadas, 'tarefas atrasadas', 'alerta', 'data-ir="tarefas"', 'alerta')}
-      ${numero(c.hoje, 'tarefas para hoje', 'calendario', 'data-ir="tarefas"', '')}
-    </div>
-    <div class="duas">
-      <section class="cartao"><div class="cartao-cab"><h2>${ico('caixa')}Quem espera resposta</h2><small>mais antigo primeiro</small></div>
-        ${
-          fila
-            .map((x) => {
-              const t = espera(x.pendente_desde || x.ultima_em);
-              return `<div class="fila-item toque" data-abrir-conversa="${x.id}" data-estado-conversa="responder">
-          ${avatar(nomeConversa(x), x.espaco_id, x.canal)}
-          <div class="txt"><div class="nome"><span>${esc(nomeConversa(x))}</span></div><div class="prev">${esc(x.ultima?.texto || x.ultima?.assunto || x.titulo || '')}</div></div>
-          <span class="idade ${t.cls}">${t.txt}</span></div>`;
-            })
-            .join('') || `<div class="vazio"><b>Caixa zerada</b>Quando alguém escrever, aparece aqui.</div>`
-        }
-        ${c.responder > fila.length ? `<div class="fila-item toque" data-ir-caixa="responder" style="justify-content:center;color:var(--acento);font-size:14px">Ver as ${c.responder} na caixa</div>` : ''}
-      </section>
-      <section class="cartao"><div class="cartao-cab"><h2>${ico('tarefas')}Tarefas de hoje</h2><small>${tarefas.length || ''}</small></div>
-        ${formRapida()}
-        ${tarefas.map(linhaTarefa).join('') || `<div class="vazio"><b>Nada para hoje</b>Escreva acima e aperte Enter para criar.</div>`}
-      </section>
-    </div>
-    ${pendenciasHoje(esp)}<div class="espacos-grade">${esp.map(cartaoEspaco).join('')}</div>
-  </div>`;
-}
-function cartaoEspaco(e) {
-  const r = e.conversas.responder;
-  const fontes = e.fontes.flatMap((f) =>
-    [...f.itens].sort((a, b) => b.urgente - a.urgente).map((i) => ({ ...i, fonte: f.nome })),
-  );
-  return `<section class="cartao espaco-card" style="${cor(e.espaco.id)}"><div class="topo-cor"></div>
-    <div class="corpo toque" data-espaco="${esc(e.espaco.id)}"><h3><span class="bolinha"></span>${esc(e.espaco.nome)}</h3>
-      <div class="resumo">${r ? `<b style="color:var(--tinta)">${plural(r, 'para responder', 'para responder')}</b> · ` : ''}${plural(e.abertas, 'tarefa aberta', 'tarefas abertas')}${e.vencidas.length ? ` · <span style="color:var(--mal)">${e.vencidas.length} atrasada${e.vencidas.length > 1 ? 's' : ''}</span>` : ''}</div></div>
-    ${fontes.map((i) => `<div class="fonte-item ${i.urgente ? 'urgente' : ''}"><b>${i.qtd ?? ''}</b><span>${esc(i.titulo)}</span><button class="btn mini" data-ir="operacao">Ver operação</button></div>`).join('')}
-    ${e.fontes
-      .filter((f) => f.erro)
-      .map((f) => `<div class="fonte-erro">${esc(f.nome)}: ${esc(f.erro)}</div>`)
-      .join('')}
-  </section>`;
+  return paginaHoje(D.hoje);
 }
 function formRapida(espaco, projeto) {
   const padrao = espaco || (UI.espaco !== 'todos' ? UI.espaco : D.espacos[0]?.id);
-  return `<form class="rapida" data-rapida><input name="titulo" placeholder="Nova tarefa… (Enter cria)" required maxlength="200" aria-label="Nova tarefa" autocomplete="off">
-    <select name="espaco" aria-label="Espaço">${D.espacos.map((e) => `<option value="${esc(e.id)}" ${e.id === padrao ? 'selected' : ''}>${esc(e.nome)}</option>`).join('')}</select>
-    <select name="projeto_id" aria-label="Projeto">${opcoesProjeto(padrao, projeto || (UI.filtroProjeto !== 'sem' ? UI.filtroProjeto : null))}</select>
-    <select name="proxima" aria-label="Quando"><option value="">Sem dia planejado</option><option value="${hojeIso()}">hoje</option><option value="${somarDias(1)}">amanhã</option><option value="${somarDias(7)}">+7 dias</option></select><button class="btn primario" type="submit" aria-label="Criar tarefa">${ico('mais')}</button></form>`;
+  const dia = UI.aba === 'hoje' ? hojeIso() : '';
+  return `<form class="rapida" data-rapida>
+    <div class="rapida-entrada"><input name="titulo" placeholder="Qual é o próximo passo?" required maxlength="200" aria-label="Nova tarefa" autocomplete="off"><button class="btn primario" type="submit" aria-label="Criar tarefa">${ico('mais')}<span>Adicionar</span></button></div>
+    <div class="rapida-campos"><label>Espaço<select name="espaco" aria-label="Espaço">${D.espacos.map((e) => `<option value="${esc(e.id)}" ${e.id === padrao ? 'selected' : ''}>${esc(e.nome)}</option>`).join('')}</select></label>
+    <label>Projeto<select name="projeto_id" aria-label="Projeto">${opcoesProjeto(padrao, projeto || (UI.filtroProjeto !== 'sem' && UI.aba === 'tarefas' ? UI.filtroProjeto : null), 'Sem projeto')}</select></label>
+    <label>Planejar para<select name="proxima" aria-label="Quando">${[
+      ['Sem dia planejado', ''],
+      ['Hoje', hojeIso()],
+      ['Amanhã', somarDias(1)],
+      ['Em 7 dias', somarDias(7)],
+    ]
+      .map(([n, v]) => `<option value="${v}" ${dia === v ? 'selected' : ''}>${n}</option>`)
+      .join('')}</select></label></div>
+  </form>`;
 }
 
 // ---------- Tarefas ----------
@@ -1262,9 +1197,14 @@ document.addEventListener('submit', async (e) => {
   const f = e.target;
   if (f.matches('[data-rapida]')) {
     e.preventDefault();
+    if (f.submetendo) return;
+    f.submetendo = true;
+    const botao = f.querySelector('button[type=submit]');
+    if (botao) botao.disabled = true;
     const d = Object.fromEntries(new FormData(f));
+    let criada;
     try {
-      await api('POST', '/api/tarefas', {
+      criada = await api('POST', '/api/tarefas', {
         espaco_id: d.espaco,
         titulo: d.titulo,
         projeto_id: d.projeto_id ? Number(d.projeto_id) : null,
@@ -1272,8 +1212,19 @@ document.addEventListener('submit', async (e) => {
       });
     } catch (er) {
       return falhou(er);
+    } finally {
+      f.submetendo = false;
+      if (botao?.isConnected) botao.disabled = false;
     }
-    avisar('Tarefa criada');
+    if (UI.aba === 'hoje') UI.hojeFiltro = 'todas';
+    avisar(
+      d.proxima === hojeIso()
+        ? 'Tarefa adicionada à agenda de hoje'
+        : d.proxima
+          ? 'Tarefa planejada para ' + dataCurta(d.proxima)
+          : 'Tarefa capturada sem dia planejado',
+      { acao: 'Abrir', fn: () => abrirTarefa(criada.id) },
+    );
     await carregarAba();
     atualizarContagens();
     const novo = $('[data-rapida] [name=titulo]');

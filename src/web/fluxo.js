@@ -39,11 +39,151 @@ function contextoTopo() {
     ? '<p class="faixa-local">Trabalho local · dados guardados neste dispositivo. “Todos” reúne somente os espaços locais.</p>'
     : '';
 }
-function pendenciasHoje(espacos) {
-  const cobrancas = espacos.flatMap((e) => e.cobrancas || []);
-  const projetos = espacos.flatMap((e) => e.projetos || []).filter((p) => !p.proxima_acao);
-  return `<div class="duas bloco-contexto">${cobrancas.length ? `<section class="cartao"><div class="cartao-cab"><h2>Cobrar agora</h2><small>${cobrancas.length}</small></div>${cobrancas.map((c) => `<button class="fila-item" data-abrir-conversa="${c.id}" data-estado-conversa="esperando"><span>${esc(c.pessoa_nome || c.titulo)}</span><small>${c.cobrar_em ? quando(c.cobrar_em) : ''}</small></button>`).join('')}</section>` : ''}
-  ${projetos.length ? `<section class="cartao"><div class="cartao-cab"><h2>Projetos sem próximo passo</h2></div>${projetos.map((p) => `<button class="fila-item" data-projeto="${p.id}"><span>${esc(p.nome)}</span>${chipEspaco(p.espaco_id)}</button>`).join('')}</section>` : ''}</div>`;
+// A página Hoje reúne ações; cada contagem leva exatamente à sua fila.
+function dadosDoDia(h) {
+  const espacos = h.espacos.filter((e) => UI.espaco === 'todos' || e.espaco.id === UI.espaco);
+  const unicas = (ts) => [...new Map(ts.map((t) => [t.id, t])).values()];
+  const porPrioridade = (a, b) =>
+    (({ urgente: 0, alta: 1, normal: 2, baixa: 3 })[a.prioridade] ?? 2) -
+      ({ urgente: 0, alta: 1, normal: 2, baixa: 3 }[b.prioridade] ?? 2) ||
+    String(a.prazo || a.proxima || '').localeCompare(String(b.prazo || b.proxima || '')) ||
+    a.id - b.id;
+  const atrasadas = unicas(espacos.flatMap((e) => e.vencidas)).sort(porPrioridade);
+  const usadas = new Set(atrasadas.map((t) => t.id));
+  const lembretes = unicas(espacos.flatMap((e) => e.lembretes || []))
+    .filter((t) => !usadas.has(t.id))
+    .sort(porPrioridade);
+  lembretes.forEach((t) => usadas.add(t.id));
+  const hoje = unicas(espacos.flatMap((e) => e.deHoje))
+    .filter((t) => !usadas.has(t.id))
+    .sort(porPrioridade);
+  const conversas = espacos
+    .flatMap((e) => e.conversas.primeiras)
+    .sort((a, b) => (a.pendente_desde || a.ultima_em).localeCompare(b.pendente_desde || b.ultima_em));
+  return {
+    espacos,
+    atrasadas,
+    hoje,
+    lembretes,
+    conversas,
+    responder: espacos.reduce((n, e) => n + e.conversas.responder, 0),
+    esperando: espacos.reduce((n, e) => n + e.conversas.esperando, 0),
+    cobrancas: espacos.flatMap((e) => e.cobrancas || []),
+    projetos: espacos.flatMap((e) => e.projetos || []),
+  };
+}
+function paginaHoje(h) {
+  if (!h)
+    return `<div class="pagina">${faixaErro() || '<div class="vazio">Organizando o seu dia…</div>'}</div>`;
+  const dia = dadosDoDia(h),
+    total = dia.atrasadas.length + dia.hoje.length + dia.lembretes.length;
+  const data = new Date().toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: FUSO,
+  });
+  const filtro = ['todas', 'atrasadas', 'hoje', 'lembretes'].includes(UI.hojeFiltro)
+    ? UI.hojeFiltro
+    : 'todas';
+  const medida = (n, nome, desc, icone, acao, tom = '') =>
+    `<button class="hoje-metrica ${n ? tom : 'sem-pendencia'}" ${acao}><span class="hoje-metrica-icone">${ico(icone)}</span><span class="hoje-metrica-texto"><span>${nome}</span><small>${desc}</small></span><b>${n}</b>${ico('voltar', 'hoje-seta')}</button>`;
+  const tabs = [
+    ['todas', 'Tudo do dia', total],
+    ['atrasadas', 'Atrasadas', dia.atrasadas.length],
+    ['hoje', 'Hoje', dia.hoje.length],
+    ['lembretes', 'Lembretes', dia.lembretes.length],
+  ];
+  const grupos = [
+    ['atrasadas', 'Atrasadas', 'Resolva o que já passou da data.', dia.atrasadas],
+    ['hoje', 'Hoje', 'O que você reservou para este dia.', dia.hoje],
+    ['lembretes', 'Lembretes', 'Chegou a hora de retomar.', dia.lembretes],
+  ].filter(([id, , , ts]) => ts.length && (filtro === 'todas' || filtro === id));
+  const resumo = dia.atrasadas.length
+    ? `${plural(dia.atrasadas.length, 'tarefa precisa', 'tarefas precisam')} de atenção. Comece por aqui.`
+    : total
+      ? `${plural(total, 'ação na sua agenda', 'ações na sua agenda')}. Um próximo passo de cada vez.`
+      : 'Organize o próximo passo. O restante fica no seu lugar.';
+  return `<div class="pagina hoje">
+    <header class="hoje-cab"><div><p class="hoje-data">${esc(data)}</p><h1>Seu dia, em ordem.</h1><p class="hoje-resumo">${esc(resumo)}</p></div><div class="hoje-contexto"><span class="chip">${UI.contexto === 'local' ? 'Trabalho local' : 'Central pessoal'} · ${UI.espaco === 'todos' ? 'Todos os espaços' : esc(espacoPor(UI.espaco).nome)}</span><button class="btn fantasma" data-atualizar aria-label="Atualizar o dia">${ico('atualizar')}<span>Atualizar</span></button></div></header>
+    ${faixaErro()}${contextoTopo()}
+    <section class="hoje-metricas" aria-label="Resumo do dia">
+      ${medida(dia.atrasadas.length, 'Atrasadas', 'Precisam de atenção', 'alerta', 'data-hoje-filtro="atrasadas"', 'urgente')}
+      ${medida(dia.hoje.length, 'Para hoje', 'Planejadas para o dia', 'calendario', 'data-hoje-filtro="hoje"', 'destaque')}
+      ${medida(dia.responder, 'Para responder', 'Na sua caixa', 'caixa', 'data-ir-caixa="responder"', 'destaque')}
+      ${medida(dia.esperando, 'Aguardando', 'Retorno de outra pessoa', 'relogio', 'data-ir-caixa="esperando"')}
+    </section>
+    <div class="hoje-layout">
+      <section class="cartao hoje-agenda" data-agenda aria-labelledby="agenda-titulo">
+        <div class="hoje-painel-cab"><div><span class="hoje-sobre">SEU FOCO</span><h2 id="agenda-titulo">Agenda do dia <span class="hoje-contagem">${total}</span></h2></div><button class="btn fantasma mini" data-ir="tarefas">Todas as tarefas ${ico('voltar', 'hoje-seta')}</button></div>
+        <div class="hoje-captura"><p>Transforme o próximo passo em uma tarefa.</p>${formRapida()}<small>Enter também adiciona. Espaço e projeto ficam com a tarefa.</small></div>
+        <div class="hoje-tabs" role="group" aria-label="Filtrar agenda">${tabs.map(([id, n, q]) => `<button data-hoje-filtro="${id}" aria-pressed="${filtro === id}">${n}<span>${q}</span></button>`).join('')}</div>
+        <div class="hoje-agenda-lista">${grupos.map(([id, n, desc, ts]) => `<section class="hoje-grupo ${id}"><div class="hoje-grupo-cab"><h3><span class="hoje-ponto" aria-hidden="true"></span>${n}<span aria-hidden="true">${ts.length}</span></h3><p>${desc}</p></div>${ts.map((t) => linhaTarefa(t)).join('')}</section>`).join('') || `<div class="hoje-vazio">${ico('check')}<h3>${total ? 'Nenhuma tarefa neste filtro' : 'Sua agenda está livre'}</h3><p>${total ? 'As outras ações continuam nas abas ao lado.' : 'Adicione uma tarefa acima. Ela já fica planejada para hoje.'}</p>${total ? '<button class="btn" data-hoje-filtro="todas">Ver tudo do dia</button>' : '<button class="btn" data-foco-captura>Adicionar a primeira tarefa</button>'}</div>`}</div>
+      </section>
+      <aside class="hoje-acompanhamento">
+        <section class="cartao hoje-caixa" aria-labelledby="hoje-caixa-titulo"><div class="hoje-painel-cab"><div><span class="hoje-sobre">CONVERSAS</span><h2 id="hoje-caixa-titulo">Sua caixa <span class="hoje-contagem">${dia.responder}</span></h2></div><button class="btn fantasma mini" data-ir-caixa="responder" aria-label="Abrir caixa">${ico('voltar', 'hoje-seta')}</button></div>
+          <p class="hoje-painel-desc">Quem espera há mais tempo aparece primeiro.</p>
+          ${
+            dia.conversas
+              .slice(0, 4)
+              .map((c) => hojeConversa(c))
+              .join('') ||
+            '<div class="hoje-vazio compacto">' +
+              ico('caixa') +
+              '<h3>Você está em dia</h3><p>Novas conversas que pedem resposta aparecem aqui.</p></div>'
+          }
+          ${dia.responder > 4 ? `<button class="hoje-ver-todos" data-ir-caixa="responder">Ver as ${dia.responder} conversas ${ico('voltar', 'hoje-seta')}</button>` : ''}
+        </section>
+        <section class="cartao hoje-cobrancas" aria-labelledby="hoje-cobrar-titulo"><div class="hoje-painel-cab"><div><span class="hoje-sobre">ACOMPANHAMENTO</span><h2 id="hoje-cobrar-titulo">Retomar contato <span class="hoje-contagem">${dia.cobrancas.length}</span></h2></div>${ico('relogio')}</div>
+          ${
+            dia.cobrancas
+              .slice(0, 4)
+              .map((c) => hojeConversa(c, 'esperando'))
+              .join('') ||
+            `<div class="hoje-nota-vazia">Nenhuma cobrança para agora.${dia.esperando ? ` Você aguarda ${plural(dia.esperando, 'retorno', 'retornos')}.` : ' Marque uma data de cobrança na conversa para retomá-la na hora certa.'}</div>`
+          }
+          ${dia.cobrancas.length > 4 ? '<button class="hoje-ver-todos" data-ir-caixa="cobrar">Ver todas as cobranças</button>' : ''}
+        </section>
+      </aside>
+    </div>
+    <section class="hoje-projetos" aria-labelledby="hoje-projetos-titulo"><div class="hoje-secao-cab"><div><span class="hoje-sobre">CONTINUIDADE</span><h2 id="hoje-projetos-titulo">Projetos em movimento</h2></div><button class="btn fantasma mini" data-ir="projetos">Ver projetos ${ico('voltar', 'hoje-seta')}</button></div>
+      <div class="hoje-projetos-grade">${
+        dia.projetos
+          .slice(0, 6)
+          .map(
+            (p) =>
+              `<button class="hoje-projeto cartao" data-projeto="${p.id}" style="${cor(p.espaco_id)}"><span class="meta">${chipEspaco(p.espaco_id)}${!p.proxima_acao ? '<span class="hoje-sem-passo">Definir próximo passo</span>' : ''}</span><h3>${esc(p.nome)}</h3><p>${esc(p.proxima_acao || p.objetivo || 'Abra o projeto e escolha a próxima ação.')}</p><span class="hoje-projeto-rodape">${p.prazo ? 'Prazo ' + dataCurta(p.prazo) : 'Abrir projeto'}${ico('voltar', 'hoje-seta')}</span></button>`,
+          )
+          .join('') ||
+        `<div class="hoje-projeto-vazio"><div>${ico('camadas')}<span><b>Dê um lugar para cada entrega</b><small>Reúna tarefas e conversas em um projeto.</small></span></div><button class="btn" data-novo-projeto>${ico('mais')}Criar projeto</button></div>`
+      }</div>
+    </section>
+    <section class="hoje-espacos" aria-labelledby="hoje-espacos-titulo"><div class="hoje-secao-cab"><div><span class="hoje-sobre">CADA FRENTE NO SEU LUGAR</span><h2 id="hoje-espacos-titulo">${UI.espaco === 'todos' ? 'Seus espaços' : 'Neste espaço'}</h2></div></div><div class="hoje-espacos-grade">${dia.espacos.map((e) => hojeEspaco(e)).join('')}</div></section>
+  </div>`;
+}
+function hojeConversa(c, estado = 'responder') {
+  const idade = espera(c.pendente_desde || c.ultima_em);
+  return `<button class="hoje-conversa" data-abrir-conversa="${c.id}" data-estado-conversa="${estado}" data-espaco-conversa="${esc(c.espaco_id)}">${avatar(nomeConversa(c), c.espaco_id, c.canal)}<span class="hoje-conversa-texto"><strong>${esc(nomeConversa(c))}</strong><span>${esc(c.ultima?.texto || c.ultima?.assunto || c.titulo || 'Abrir conversa')}</span><small>${esc(espacoPor(c.espaco_id).nome)} · ${c.canal === 'email' ? 'E-mail' : 'WhatsApp'}</small></span><span class="idade ${idade.cls}">${estado === 'esperando' && c.cobrar_em ? horaLista(c.cobrar_em) : idade.txt}</span></button>`;
+}
+function hojeEspaco(e) {
+  const fontes = e.fontes || [],
+    itens = fontes.flatMap((f) => f.itens),
+    erros = fontes.filter((f) => f.erro);
+  return `<article class="cartao hoje-espaco" style="${cor(e.espaco.id)}"><button class="hoje-espaco-topo" data-espaco="${esc(e.espaco.id)}"><span class="bolinha"></span><h3>${esc(e.espaco.nome)}</h3>${ico('voltar', 'hoje-seta')}</button><div class="hoje-espaco-resumo"><span><b>${e.abertas}</b> ${e.abertas === 1 ? 'tarefa aberta' : 'tarefas abertas'}</span><span><b>${e.conversas.responder}</b> para responder</span></div>
+    ${
+      itens.length
+        ? `<div class="hoje-fonte-resumo">${itens
+            .slice(0, 2)
+            .map(
+              (i) =>
+                `<p class="${i.urgente ? 'urgente' : ''}">${i.qtd != null ? `<b>${i.qtd}</b> ` : ''}${esc(i.titulo)}</p>`,
+            )
+            .join(
+              '',
+            )}<button class="btn mini fantasma" data-ir="operacao">Ver operação ${ico('voltar', 'hoje-seta')}</button></div>`
+        : ''
+    }
+    ${erros.map((f) => `<p class="fonte-erro">${esc(f.nome)}: ${esc(f.erro)}</p>`).join('')}</article>`;
 }
 function desenharMais() {
   return `<div class="pagina"><div class="cab"><div><h1>Seu espaço de trabalho</h1><p>Escolha o contexto e continue dentro da Central.</p></div></div>${contextoTopo()}
@@ -330,7 +470,7 @@ function salvarVistas(v) {
 }
 async function fluxoClique(e) {
   const b = e.target.closest(
-    '[data-novo-projeto],[data-projeto],[data-editar-projeto],[data-voltar-projetos],[data-vista-tarefas],[data-criar-mensagem],[data-vincular-mensagem],[data-origem],[data-agendar-conversa],[data-triar],[data-retomar],[data-mais-mensagens],[data-mais-conversas],[data-fonte],[data-recarregar-operacao],[data-trocar-contexto],[data-salvar-vista],[data-vista-salva],[data-apagar-vista],[data-virar-tarefa],[data-desvincular]',
+    '[data-novo-projeto],[data-projeto],[data-editar-projeto],[data-voltar-projetos],[data-vista-tarefas],[data-criar-mensagem],[data-vincular-mensagem],[data-origem],[data-agendar-conversa],[data-triar],[data-retomar],[data-mais-mensagens],[data-mais-conversas],[data-fonte],[data-recarregar-operacao],[data-trocar-contexto],[data-salvar-vista],[data-vista-salva],[data-apagar-vista],[data-virar-tarefa],[data-desvincular],[data-hoje-filtro],[data-foco-captura]',
   );
   if (!b) return;
   e.preventDefault();
@@ -362,6 +502,11 @@ async function fluxoClique(e) {
       }
       return;
     }
+    if (b.hasAttribute('data-hoje-filtro')) {
+      UI.hojeFiltro = b.dataset.hojeFiltro;
+      return desenhar();
+    }
+    if (b.hasAttribute('data-foco-captura')) return $('[data-rapida] [name=titulo]')?.focus();
     if (b.hasAttribute('data-novo-projeto')) return abrirGaveta(formProjeto());
     if (b.hasAttribute('data-desvincular')) {
       await api('DELETE', `/api/conversas/${D.conversa.id}/vinculos/${b.dataset.desvincular}`);
