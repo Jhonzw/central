@@ -4,7 +4,7 @@
 //
 // Mesmo formato de pastas do useMultiFileAuthState do Baileys, só que cifrado.
 
-import { mkdir, readFile, writeFile, unlink, rm, rename } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, unlink, rm, rename, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { BufferJSON, initAuthCreds, proto } from 'baileys';
@@ -62,6 +62,9 @@ export async function sessaoCifrada(pasta: string, cofre: Cofre) {
       },
     },
     salvarCreds: () => gravar(creds, 'creds'),
-    apagarTudo: () => rm(pasta, { recursive: true, force: true }),
+    // Apaga o conteúdo, não a pasta: no servidor ela é um volume montado.
+    apagarTudo: async () => {
+      for (const f of await readdir(pasta).catch(() => [] as string[])) await rm(join(pasta, f), { recursive: true, force: true });
+    },
   };
 }

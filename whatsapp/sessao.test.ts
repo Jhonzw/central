@@ -26,3 +26,13 @@ test('sessão grava cifrada e volta igual, com Buffer e tudo', async () => {
   assert.notDeepEqual(outra.state.creds.noiseKey, s.state.creds.noiseKey);
   rmSync(pasta, { recursive: true, force: true });
 });
+
+test('apagar a sessão esvazia a pasta mas não remove a pasta (é um volume no servidor)', async () => {
+  const pasta = mkdtempSync(join(tmpdir(), 'wa-'));
+  const s = await sessaoCifrada(pasta, criarCofre(randomBytes(32)));
+  await s.salvarCreds();
+  assert.ok(readdirSync(pasta).length > 0);
+  await s.apagarTudo();
+  assert.deepEqual(readdirSync(pasta), []);
+  rmSync(pasta, { recursive: true, force: true });
+});
