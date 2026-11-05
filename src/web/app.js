@@ -664,7 +664,7 @@ function estadoWa(c) {
   const e = c.estado || {};
   const visto = e.visto ? Date.now() - Date.parse(e.visto) < 2 * 60e3 : false;
   if (e.restricao) return ['mal', e.restricao];
-  if (!visto) return ['mal', 'o processo do WhatsApp não está rodando'];
+  if (!visto) return ['mal', 'o servidor não tem processo do WhatsApp ligado a esta conta'];
   if (e.conectado) return ['bom', `conectado${c.endereco ? ' · ' + fone(c.endereco) : ''}`];
   return [
     'aviso',
@@ -705,7 +705,7 @@ function desenharConexoes() {
           c.estado?.conectado
             ? ''
             : c.estado?.codigo
-              ? `<div class="passo-wa"><span>No celular: <b>WhatsApp → Aparelhos conectados → Conectar aparelho → Conectar com número de telefone</b>, e digite:</span><div class="codigo-par">${esc(c.estado.codigo)}</div><span class="pequeno">O código muda a cada minuto; a tela atualiza sozinha.</span></div>`
+              ? `<div class="passo-wa"><span>No celular: <b>WhatsApp → Aparelhos conectados → Conectar aparelho → Conectar com número de telefone</b>, e digite:</span><div class="codigo-par">${esc(c.estado.codigo)}</div><span class="pequeno">Vale por alguns minutos. Se expirar, a tela avisa e você pede outro.</span></div>`
               : `<form class="passo-wa" data-parear="${esc(c.id)}"><span>Para conectar, digite o seu número (com 55 e DDD) e peça o código:</span>
             <div style="display:flex;gap:8px"><input name="numero" inputmode="numeric" placeholder="5562999990000" required pattern="[0-9]{12,13}"><button class="btn wa">Gerar código</button></div></form>`
         }`;

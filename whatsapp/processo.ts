@@ -42,6 +42,7 @@ async function central(metodo: string, caminho: string, corpo?: unknown) {
     headers: { Authorization: `Bearer ${TOKEN}`, ...(corpo ? { 'Content-Type': 'application/json' } : {}) },
     body: corpo ? JSON.stringify(corpo) : undefined,
   });
+  if (r.status === 404) throw new Error(`a conta "${CONTA}" não existe na Central (confira CONTA e o token)`);
   if (!r.ok) throw new Error(`Central respondeu ${r.status}`);
   return r.json();
 }
@@ -51,6 +52,7 @@ let sock: WASocket | null = null;
 let conectado = false;
 let travado = false;           // banido/restrito: não tenta de novo sozinho
 let numeroParear: string | null = null;
+let codigoAtivo = false;       // há um código na tela esperando o celular
 const nomes = new Map<string, string>();
 let fila: ParaCentral[] = [];
 
@@ -83,7 +85,12 @@ async function ligar() {
       ...(versao ? { version: versao } : {}),
       auth: { creds: sessao.state.creds, keys: makeCacheableSignalKeyStore(sessao.state.keys as never, logger) },
       logger,
-      browser: Browsers.ubuntu('Central'),
+      // O código de pareamento só é aceito pelo celular quando o aparelho se
+      // apresenta como um navegador conhecido; nome inventado vira
+      // "não foi possível conectar".
+      browser: Browsers.ubuntu('Chrome'),
+      // Cada rodada do QR dura 1 min: o código vale enquanto houver rodada (~6 min).
+      qrTimeout: 60_000,
       markOnlineOnConnect: false,
       syncFullHistory: false,
       generateHighQualityLinkPreview: false,
@@ -99,11 +106,13 @@ async function ligar() {
         numeroParear = null;
         try {
           const codigo = await s.requestPairingCode(numero);
+          codigoAtivo = true;
           informar({ conectado: false, codigo: codigo.match(/.{1,4}/g)?.join('-') ?? codigo, erro: null });
         } catch (e) { informar({ erro: `pareamento: ${(e as Error).message}` }); }
       }
       if (u.connection === 'open') {
         conectado = true;
+        codigoAtivo = false;
         const numero = s.user?.id?.split(':')[0].split('@')[0];
         informar({ conectado: true, codigo: null, erro: null, restricao: null, numero });
         console.log('WhatsApp conectado');
@@ -121,6 +130,19 @@ async function ligar() {
         if (codigo === DisconnectReason.loggedOut) {
           await sessao.apagarTudo();
           return informar({ conectado: false, codigo: null, erro: 'desvinculado pelo celular; pareie de novo' });
+        }
+        // Pareou: o WhatsApp pede para reconectar. Grava a sessão antes e religa já.
+        if (codigo === DisconnectReason.restartRequired) {
+          codigoAtivo = false;
+          await sessao.salvarCreds();
+          setTimeout(() => { ligando = false; ligar(); }, 500);
+          return informar({ conectado: false, codigo: null, erro: 'código aceito; terminando de conectar' });
+        }
+        // Código digitado tarde (ou não digitado): não fica código velho na tela.
+        if (codigoAtivo && !s.authState.creds.registered) {
+          codigoAtivo = false;
+          await sessao.apagarTudo();
+          return informar({ conectado: false, codigo: null, erro: 'o código expirou antes de ser digitado; peça outro' });
         }
         // Queda comum: religa com espera crescente.
         tentativas++;
@@ -160,9 +182,13 @@ async function verPedido() {
     if (pedido.acao === 'parear' && pedido.numero) {
       travado = false;
       numeroParear = pedido.numero;
+      codigoAtivo = false;
       const velho = sock;
       sock = null;
       velho?.end(undefined);
+      // Pedido novo começa do zero: sessão meio pareada atrapalha o código.
+      const atual = await sessaoCifrada(SESSAO, cofre);
+      if (!atual.state.creds.registered) await atual.apagarTudo();
       ligando = false;
       await ligar();
     }
