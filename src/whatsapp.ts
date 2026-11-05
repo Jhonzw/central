@@ -39,6 +39,8 @@ export function anotarEstado(db: Banco, conta: string, corpo: Record<string, unk
   if (c.tipo !== 'whatsapp') throw new ErroDeEntrada('conta não é de WhatsApp');
   const parte: Record<string, unknown> = { visto: agora() };
   if ('conectado' in corpo) parte.conectado = corpo.conectado === true;
+  // Qualquer resposta do processo (código, erro, conexão) encerra o "gerando".
+  if ('codigo' in corpo || 'erro' in corpo || corpo.conectado === true) parte.gerando = null;
   if ('codigo' in corpo) parte.codigo = corpo.codigo ? String(corpo.codigo).replace(/[^A-Z0-9-]/gi, '').slice(0, 12) : null;
   if ('erro' in corpo) parte.erro = corpo.erro ? String(corpo.erro).slice(0, 300) : null;
   if (typeof corpo.historico === 'number' && Number.isFinite(corpo.historico)) parte.historico = Math.max(0, Math.floor(corpo.historico));
@@ -68,8 +70,10 @@ export function pedir(db: Banco, conta: string, corpo: Record<string, unknown>) 
 export function retirarPedido(db: Banco, conta: string) {
   const c = contas.obter(db, conta);
   const pedido = (c.estado.pedido as Record<string, unknown> | undefined) ?? null;
-  if (pedido) contas.mesclarEstado(db, conta, { pedido: null });
   // Pedido esquecido por mais de 10 minutos não vale mais.
-  if (pedido && Date.parse(String(pedido.em)) + 10 * 60e3 < Date.now()) return { pedido: null };
-  return { pedido };
+  const vencido = pedido && Date.parse(String(pedido.em)) + 10 * 60e3 < Date.now();
+  // Entre pegar o pedido e ter o código passam alguns segundos: a tela precisa
+  // saber que o código está sendo gerado para continuar se atualizando.
+  if (pedido) contas.mesclarEstado(db, conta, { pedido: null, gerando: !vencido && pedido.acao === 'parear' ? agora() : null });
+  return { pedido: vencido ? null : pedido };
 }

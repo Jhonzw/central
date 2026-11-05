@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { abrir, agora } from '../src/db.ts';
 import { criarCofre } from '../src/cofre.ts';
-import { hashSenha, entrar } from '../src/acesso.ts';
+import { hashSenha, entrar, criarToken } from '../src/acesso.ts';
 import { novoSegredo, codigo } from '../src/totp.ts';
 import * as espacos from '../src/espacos.ts';
 import * as contas from '../src/contas.ts';
@@ -77,6 +77,8 @@ const token = await entrar(db, cofre, {
   ip: '127.0.0.1',
   agente: 'E2E',
 });
+// Token do "processo do WhatsApp" fictício: o teste faz o papel dele.
+const tokenWa = criarToken(db, 'processo do WhatsApp (teste)', 'whatsapp:wa').token;
 db.close();
 writeFileSync(join(pasta, 'chave'), chave.toString('base64'), { mode: 0o600 });
 writeFileSync(join(pasta, 'config.json'), JSON.stringify({ espacos: [], conectores: [] }));
@@ -100,6 +102,7 @@ writeFileSync(
   }),
   { mode: 0o600 },
 );
+writeFileSync('.e2e/wa-token', tokenWa, { mode: 0o600 });
 const proc = spawn(process.execPath, ['src/server.ts'], {
   stdio: 'inherit',
   env: {
