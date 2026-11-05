@@ -27,6 +27,13 @@ test('status, grupo, canal, reação, sistema e histórico velho ficam de fora',
   assert.equal(paraCentral(m({ messageTimestamp: ts - 3 * 86400 }), { agora }), null);
 });
 
+test('histórico do celular: até 7 dias entra marcado, mais velho fica de fora', () => {
+  const x = paraCentral(m({ messageTimestamp: ts - 5 * 86400 }), { agora, historico: true })!;
+  assert.equal(x.historico, true);
+  assert.equal(paraCentral(m({ messageTimestamp: ts - 8 * 86400 }), { agora, historico: true }), null);
+  assert.equal('historico' in paraCentral(m(), { agora })!, false);
+});
+
 test('LID vira o número quando ele é conhecido; minha mensagem é "Você"', () => {
   const x = paraCentral(m({}, { remoteJid: '1234567@lid', fromMe: true }), { agora, pn: '556299990000@s.whatsapp.net' })!;
   assert.equal(x.chave, '556299990000@s.whatsapp.net');

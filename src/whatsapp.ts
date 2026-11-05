@@ -9,26 +9,27 @@ import { receber } from './caixa.ts';
 
 const JID = /^[\w.:-]{3,80}@(s\.whatsapp\.net|lid|g\.us)$/;
 
-export function receberLote(db: Banco, conta: string, corpo: Record<string, unknown>): { novas: number } {
+export function receberLote(db: Banco, conta: string, corpo: Record<string, unknown>): { novas: number; ignoradas: number } {
   const c = contas.obter(db, conta);
   if (c.tipo !== 'whatsapp') throw new ErroDeEntrada('conta não é de WhatsApp');
   const lista = corpo.mensagens;
   if (!Array.isArray(lista) || lista.length > 200) throw new ErroDeEntrada('mensagens: lista de até 200');
-  let novas = 0;
+  let novas = 0, ignoradas = 0;
   for (const m of lista as Array<Record<string, unknown>>) {
+    // Uma mensagem ruim não trava o lote (nem a fila do processo): fica de fora.
     const chave = String(m.chave ?? '');
-    if (!JID.test(chave)) throw new ErroDeEntrada(`chave de conversa inválida: ${chave.slice(0, 40)}`);
     const em = Date.parse(String(m.em));
-    if (!Number.isFinite(em)) throw new ErroDeEntrada('data inválida');
+    if (!JID.test(chave) || !Number.isFinite(em) || !m.externo) { ignoradas++; continue; }
     const r = receber(db, {
       conta, chave, em: new Date(em).toISOString(),
       externo: String(m.externo ?? '').slice(0, 120),
       titulo: String(m.titulo ?? ''), endereco: String(m.endereco ?? ''), autor: String(m.autor ?? ''),
       de_mim: m.de_mim === true, texto: String(m.texto ?? ''),
+      historico: m.historico === true,
     });
     if (r.nova) novas++;
   }
-  return { novas };
+  return { novas, ignoradas };
 }
 
 // Estado que o processo do WhatsApp informa (conectado, código de pareamento,
@@ -40,6 +41,7 @@ export function anotarEstado(db: Banco, conta: string, corpo: Record<string, unk
   if ('conectado' in corpo) parte.conectado = corpo.conectado === true;
   if ('codigo' in corpo) parte.codigo = corpo.codigo ? String(corpo.codigo).replace(/[^A-Z0-9-]/gi, '').slice(0, 12) : null;
   if ('erro' in corpo) parte.erro = corpo.erro ? String(corpo.erro).slice(0, 300) : null;
+  if (typeof corpo.historico === 'number' && Number.isFinite(corpo.historico)) parte.historico = Math.max(0, Math.floor(corpo.historico));
   if ('restricao' in corpo) parte.restricao = corpo.restricao ? String(corpo.restricao).slice(0, 300) : null;
   if (typeof corpo.numero === 'string' && /^\d{10,15}$/.test(corpo.numero)) {
     db.prepare('UPDATE contas SET endereco = ? WHERE id = ?').run(corpo.numero, conta);

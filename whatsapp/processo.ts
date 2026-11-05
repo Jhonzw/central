@@ -5,7 +5,8 @@
 //   - não existe chamada de envio neste arquivo (nem sendMessage, nem
 //     readMessages: não marca como lida, não manda "visto");
 //   - não aparece "online" (markOnlineOnConnect: false);
-//   - não guarda histórico antigo, só o que chega a partir da conexão.
+//   - do histórico que o celular manda ao conectar, guarda só os últimos 7
+//     dias, e essas conversas entram resolvidas (fora da fila do Hoje).
 // Parear e desligar são pedidos do dono pela tela da Central; este processo
 // busca o pedido a cada poucos segundos.
 //
@@ -55,6 +56,8 @@ let numeroParear: string | null = null;
 let codigoAtivo = false;       // há um código na tela esperando o celular
 const nomes = new Map<string, string>();
 let fila: ParaCentral[] = [];
+const LIMITE_FILA = 30000;
+let historicoRecebido = 0;
 
 const informar = (parte: Record<string, unknown>) => central('POST', '/estado', parte).catch((e) => console.error('estado:', e.message));
 
@@ -154,16 +157,27 @@ async function ligar() {
     s.ev.on('contacts.upsert', (cs) => { for (const c of cs) if (c.id && (c.name || c.notify)) nomes.set(c.id, String(c.name || c.notify)); });
     s.ev.on('contacts.update', (cs) => { for (const c of cs) if (c.id && (c.name || c.notify)) nomes.set(c.id, String(c.name || c.notify)); });
 
-    // Histórico que o WhatsApp manda ao vincular: ignorado de propósito.
-    s.ev.on('messages.upsert', async ({ messages }) => {
+    const enfileirar = async (messages: Array<{ key?: { remoteJid?: string | null } }>, historico: boolean) => {
+      let n = 0;
       for (const m of messages) {
         let pn: string | null = null;
         const jid = m.key?.remoteJid ?? '';
         if (jid.endsWith('@lid')) pn = await s.signalRepository.lidMapping.getPNForLID(jid).catch(() => null);
-        const x = paraCentral(m as never, { pn, nomes, grupos: GRUPOS });
-        if (x) fila.push(x);
+        const x = paraCentral(m as never, { pn, nomes, grupos: GRUPOS, historico });
+        if (x) { fila.push(x); n++; }
       }
-      if (fila.length > 5000) fila = fila.slice(-5000);
+      if (fila.length > LIMITE_FILA) fila = fila.slice(-LIMITE_FILA);
+      return n;
+    };
+    s.ev.on('messages.upsert', ({ messages }) => { enfileirar(messages, false); });
+
+    // Histórico que o celular manda ao conectar (em pedaços): últimos 7 dias.
+    s.ev.on('messaging-history.set', async ({ messages, contacts, syncType }) => {
+      for (const c of contacts ?? []) if (c.id && (c.name || c.notify)) nomes.set(c.id, String(c.name || c.notify));
+      const n = await enfileirar(messages ?? [], true);
+      historicoRecebido += n;
+      console.log(`histórico (tipo ${syncType}): ${messages?.length ?? 0} mensagens, ${n} dos últimos 7 dias`);
+      informar({ historico: historicoRecebido });
     });
     tentativas = 0;
   } catch (e) {

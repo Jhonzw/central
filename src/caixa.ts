@@ -34,7 +34,18 @@ export type Entrada = {
   assunto?: string;
   texto: string;
   em: string;
+  // Veio do histórico que o celular manda ao conectar: não deve encher a fila.
+  historico?: boolean;
 };
+
+// Histórico: só pede resposta o que a outra pessoa mandou nas últimas 48 h.
+// O resto entra resolvido (consultável e pesquisável, fora da fila do Hoje).
+const RECENTE_HISTORICO = 48 * 36e5;
+function estadoDe(m: Entrada, em: string): string {
+  if (!m.historico) return m.de_mim ? 'esperando' : 'responder';
+  if (m.de_mim || Date.now() - Date.parse(em) > RECENTE_HISTORICO) return 'resolvida';
+  return 'responder';
+}
 
 // Celular brasileiro chega do WhatsApp às vezes sem o 9 (55 62 8xxx-xxxx).
 // As duas formas valem para achar a pessoa.
@@ -104,13 +115,13 @@ export function receber(db: Banco, m: Entrada): { nova: boolean; conversa: numbe
           String(m.titulo ?? '').slice(0, 200),
           endereco,
           pessoa,
-          m.de_mim ? 'esperando' : 'responder',
+          estadoDe(m, em),
           em,
           em,
         );
       c = {
         id: Number(r.lastInsertRowid),
-        estado: m.de_mim ? 'esperando' : 'responder',
+        estado: estadoDe(m, em),
         ultima_em: em,
         titulo: String(m.titulo ?? ''),
       };
@@ -130,7 +141,7 @@ export function receber(db: Banco, m: Entrada): { nova: boolean; conversa: numbe
       );
     if (!ins.changes) return { nova: false, conversa: c.id };
     if (em >= c.ultima_em) {
-      const estado = m.de_mim ? 'esperando' : 'responder';
+      const estado = estadoDe(m, em);
       const pendente = c.estado === estado ? (c.pendente_desde ?? em) : em;
       db.prepare(
         "UPDATE conversas SET ultima_em=?,estado=?,pendente_desde=?,visto_em=CASE WHEN ?=0 THEN NULL ELSE visto_em END,triada=CASE WHEN ?=0 THEN 0 ELSE triada END,adiada_ate=NULL,cobrar_em=CASE WHEN ?='responder' THEN NULL ELSE cobrar_em END,versao=versao+1,titulo=CASE WHEN titulo='' THEN ? ELSE titulo END WHERE id=?",

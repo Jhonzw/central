@@ -6,9 +6,11 @@
 
 export type ChaveWa = { remoteJid?: string | null; remoteJidAlt?: string | null; fromMe?: boolean | null; id?: string | null };
 export type MensagemWa = { key: ChaveWa; message?: Record<string, any> | null; messageTimestamp?: number | string | { toNumber(): number } | null; pushName?: string | null };
-export type ParaCentral = { chave: string; externo: string; de_mim: boolean; autor: string; titulo: string; endereco: string; texto: string; em: string };
+export type ParaCentral = { chave: string; externo: string; de_mim: boolean; autor: string; titulo: string; endereco: string; texto: string; em: string; historico?: true };
 
 const MAX_IDADE = 48 * 36e5;
+// Histórico que o celular manda ao conectar: só os últimos 7 dias.
+export const MAX_IDADE_HISTORICO = 7 * 24 * 36e5;
 
 // Tira os envelopes (temporária, ver uma vez, documento com legenda, editada).
 function desembrulhar(m: Record<string, any> | null | undefined): Record<string, any> | null {
@@ -50,14 +52,14 @@ export function emSegundos(t: MensagemWa['messageTimestamp']): number {
 
 // pn: o número (JID @s.whatsapp.net) do contato quando o WhatsApp manda só o LID.
 // nomes: nome que o celular tem na agenda, por JID.
-export function paraCentral(m: MensagemWa, { pn, nomes, grupos = false, agora = Date.now() }: { pn?: string | null; nomes?: Map<string, string>; grupos?: boolean; agora?: number } = {}): ParaCentral | null {
+export function paraCentral(m: MensagemWa, { pn, nomes, grupos = false, agora = Date.now(), historico = false }: { pn?: string | null; nomes?: Map<string, string>; grupos?: boolean; agora?: number; historico?: boolean } = {}): ParaCentral | null {
   const jid = m.key?.remoteJid;
   if (!jid || !m.key.id) return null;
   if (jid === 'status@broadcast' || /@(newsletter|broadcast|bot)$/.test(jid)) return null;
   const grupo = jid.endsWith('@g.us');
   if (grupo && !grupos) return null;
   const segundos = emSegundos(m.messageTimestamp);
-  if (!segundos || agora - segundos * 1000 > MAX_IDADE) return null;
+  if (!segundos || agora - segundos * 1000 > (historico ? MAX_IDADE_HISTORICO : MAX_IDADE)) return null;
   const texto = textoDe(m.message);
   if (texto === null) return null;
   // A conversa fica no número quando ele é conhecido; o LID só quando não tem jeito.
@@ -74,5 +76,6 @@ export function paraCentral(m: MensagemWa, { pn, nomes, grupos = false, agora = 
     endereco: grupo ? '' : numero(chave),
     texto: texto.slice(0, 4000),
     em: new Date(segundos * 1000).toISOString(),
+    ...(historico ? { historico: true as const } : {}),
   };
 }

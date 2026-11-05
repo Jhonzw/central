@@ -103,7 +103,8 @@ test('busca acha sem acento; retenção apaga o texto e a busca junto', () => {
 
 test('WhatsApp: lote validado, estado e pedido de uso único', () => {
   const db = banco();
-  assert.throws(() => whatsapp.receberLote(db, 'wa', { mensagens: [{ chave: 'qualquer', em: 'x' }] }), /chave/);
+  // Mensagem ruim fica de fora sem travar o lote.
+  assert.deepEqual(whatsapp.receberLote(db, 'wa', { mensagens: [{ chave: 'qualquer', em: 'x' }] }), { novas: 0, ignoradas: 1 });
   assert.equal(whatsapp.receberLote(db, 'wa', { mensagens: [msg(), msg({ externo: 'm2' })] }).novas, 2);
   whatsapp.anotarEstado(db, 'wa', { conectado: true, numero: '5562988887777', senha: 'ignorado' });
   const c = contas.obter(db, 'wa');
@@ -139,4 +140,26 @@ test('responder em: WhatsApp pelo número, Gmail pela mensagem, outro e-mail por
   caixa.receber(db, { conta: 'outro', chave: '<b1@mail>', titulo: 'Re: Orçamento', endereco: 'bia@cliente.com', autor: 'Bia', externo: '<b1@mail>', de_mim: false, assunto: 'Re: Orçamento', texto: 'oi', em: '2026-11-03T12:00:00Z' });
   const o = caixa.listar(db, { conta: 'outro' })[0] as { id: number };
   assert.equal(caixa.obter(db, o.id).responder?.url, 'mailto:bia@cliente.com?subject=Re%3A%20Or%C3%A7amento');
+});
+
+test('histórico do WhatsApp entra resolvido, menos o que a pessoa mandou nas últimas 48 h', () => {
+  const db = banco();
+  const h = (dias: number) => new Date(Date.now() - dias * 864e5).toISOString();
+  const estado = (id: number) => (db.prepare('SELECT estado FROM conversas WHERE id=?').get(id) as { estado: string }).estado;
+  // Conversa velha: resolvida.
+  const a = caixa.receber(db, msg({ chave: '556211110000@s.whatsapp.net', externo: 'h1', em: h(5), historico: true })).conversa;
+  assert.equal(estado(a), 'resolvida');
+  // A pessoa mandou ontem e ninguém respondeu: pede resposta.
+  const b = caixa.receber(db, msg({ chave: '556222220000@s.whatsapp.net', externo: 'h2', em: h(1), historico: true })).conversa;
+  assert.equal(estado(b), 'responder');
+  // Eu respondi por último (ontem): resolvida, não "esperando".
+  const c = caixa.receber(db, msg({ chave: '556233330000@s.whatsapp.net', externo: 'h3', em: h(1.5), historico: true })).conversa;
+  caixa.receber(db, msg({ chave: '556233330000@s.whatsapp.net', externo: 'h4', em: h(1), de_mim: true, historico: true }));
+  assert.equal(estado(c), 'resolvida');
+  // Histórico mais velho que a última mensagem não mexe no estado.
+  caixa.receber(db, msg({ chave: '556222220000@s.whatsapp.net', externo: 'h5', em: h(3), de_mim: true, historico: true }));
+  assert.equal(estado(b), 'responder');
+  // Mensagem ao vivo depois do histórico volta a valer normal.
+  caixa.receber(db, msg({ chave: '556211110000@s.whatsapp.net', externo: 'v1', em: h(0) }));
+  assert.equal(estado(a), 'responder');
 });
