@@ -1,0 +1,38 @@
+# Sincronização do Obsidian (plugin Self-hosted LiveSync) no mesmo servidor da Central.
+#
+# Um CouchDB só, preso ao 127.0.0.1: quem chega de fora passa pelo nginx
+# (deploy/nginx-central-caminho.conf, /central-sync/). Limites de memória e CPU
+# para não tirar recurso dos outros contêineres da máquina.
+#
+# Pastas no servidor (SYNC_DIR, padrão /opt/central/sync):
+#   couchdb/        dados do CouchDB
+#   etc/            configuração: copie deploy/sync/couchdb.ini para etc/10-livesync.ini
+#   couchdb.env     COUCHDB_USER e COUCHDB_PASSWORD do administrador (600, fora do git)
+#
+# Subir:  docker compose -f deploy/sync/compose.yml up -d
+# Depois, uma vez:  deploy/sync/preparar.sh  (cria os bancos e o usuário do Obsidian)
+
+services:
+  couchdb:
+    image: couchdb:3.5.3
+    container_name: central-couchdb
+    restart: unless-stopped
+    ports: ['127.0.0.1:5984:5984']
+    env_file: ['${SYNC_DIR:-/opt/central/sync}/couchdb.env']
+    volumes:
+      - ${SYNC_DIR:-/opt/central/sync}/couchdb:/opt/couchdb/data
+      # A imagem ajusta dono e permissão do que está em local.d e grava ali o
+      # administrador (com a senha em hash): a pasta precisa aceitar escrita.
+      - ${SYNC_DIR:-/opt/central/sync}/etc:/opt/couchdb/etc/local.d
+    mem_limit: 512m
+    cpus: 0.5
+    cpu_shares: 256
+    pids_limit: 500
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: '3' }
+    healthcheck:
+      test: ['CMD', 'curl', '-fs', 'http://127.0.0.1:5984/_up']
+      interval: 60s
+      timeout: 5s
