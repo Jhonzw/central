@@ -18,6 +18,9 @@ services:
     container_name: central-couchdb
     restart: unless-stopped
     ports: ['127.0.0.1:5984:5984']
+    # default = a rede própria; central = a rede da Central (deploy_default), para o
+    # contêiner central ler o banco do vault em http://central-couchdb:5984.
+    networks: [default, central]
     env_file: ['${SYNC_DIR:-/opt/central/sync}/couchdb.env']
     volumes:
       - ${SYNC_DIR:-/opt/central/sync}/couchdb:/opt/couchdb/data
@@ -33,6 +36,13 @@ services:
       driver: json-file
       options: { max-size: 10m, max-file: '3' }
     healthcheck:
-      test: ['CMD', 'curl', '-fs', 'http://127.0.0.1:5984/_up']
+      # Tudo exige login (require_valid_user), então o /_up sem senha responde 401:
+      # 200 ou 401 querem dizer que o CouchDB está de pé.
+      test: ['CMD-SHELL', "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5984/_up | grep -qE '^(200|401)$$'"]
       interval: 60s
       timeout: 5s
+
+networks:
+  central:
+    name: deploy_default
+    external: true

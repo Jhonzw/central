@@ -5,7 +5,7 @@
 # Pastas no servidor (CENTRAL_DIR, padrão /opt/central):
 #   dados/      banco e backups
 #   config/     local.json (só leitura)
-#   segredos/   chave do cofre, chave e token do WhatsApp (600)
+#   segredos/   chave do cofre, chave e token do WhatsApp, notas/senha (600)
 #   whatsapp/   sessão cifrada do WhatsApp
 # Tudo com dono CENTRAL_UID (padrão 10777): um UID que não é de ninguém na
 # máquina, para nenhum usuário do servidor ler os segredos sem ser root.
@@ -41,6 +41,8 @@ services:
       - ${CENTRAL_DIR:-/opt/central}/dados:/dados
       - ${CENTRAL_DIR:-/opt/central}/config:/config:ro
       - ${CENTRAL_DIR:-/opt/central}/segredos/chave:/segredos/chave:ro
+      # senha do leitor das notas no CouchDB (pasta, para não virar diretório se faltar)
+      - ${CENTRAL_DIR:-/opt/central}/segredos/notas:/segredos/notas:ro
 
   whatsapp:
     <<: *endurecido
