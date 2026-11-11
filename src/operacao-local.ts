@@ -433,10 +433,10 @@ export function criarGateway(cfg: ConfigGateway) {
           html = html.replace('/*CENTRAL_STYLES*/', () => estilos);
         }
         if (html.includes('/*CENTRAL_APP*/')) {
-          const [fluxo, app] = await Promise.all(
-            ['fluxo.js', 'app.js'].map((nome) => readFile(new URL(nome, WEB), 'utf8')),
+          const partes = await Promise.all(
+            ['fluxo.js', 'notas.js', 'app.js'].map((nome) => readFile(new URL(nome, WEB), 'utf8')),
           );
-          html = html.replace('/*CENTRAL_APP*/', () => fluxo + '\n' + app);
+          html = html.replace('/*CENTRAL_APP*/', () => partes.join('\n'));
         }
         const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(
           (m) => `'sha256-${createHash('sha256').update(m[1]).digest('base64')}'`,

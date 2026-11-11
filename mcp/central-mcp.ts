@@ -124,6 +124,31 @@ const FERRAMENTAS = [
     annotations: so,
     rodar: async (a: Record<string, unknown>) => json(await ler(`/api/conversas/${Number(a.id)}`), true),
   },
+  {
+    name: 'notas',
+    description:
+      'Notas do Obsidian (o vault sincronizado). Com q, busca no título e no texto (sem acento e sem caixa) e devolve trechos; sem q, as modificadas por último. Notas de credenciais não entram na Central.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        q: { type: 'string' },
+        pasta: { type: 'string', description: 'pasta do vault (ex.: Projetos/Pizzaria); inclui as subpastas' },
+        espaco,
+        limite: { type: 'integer', minimum: 1, maximum: 200 },
+      },
+    },
+    annotations: so,
+    rodar: async (a: Record<string, unknown>) =>
+      json(await ler('/api/notas', { q: a.q, pasta: a.pasta, espaco: a.espaco, limite: a.limite }), true),
+  },
+  {
+    name: 'nota',
+    description:
+      'Uma nota do Obsidian inteira (texto em Markdown), com as ligações para outras notas, pessoas e projetos.',
+    inputSchema: { type: 'object', properties: { id: { type: 'integer', minimum: 1 } }, required: ['id'] },
+    annotations: so,
+    rodar: async (a: Record<string, unknown>) => json(await ler(`/api/notas/${Number(a.id)}`), true),
+  },
 ];
 
 const responder = (id: unknown, result: unknown) =>

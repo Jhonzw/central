@@ -28,6 +28,7 @@ import * as tarefas from './tarefas.ts';
 import * as contas from './contas.ts';
 import * as caixa from './caixa.ts';
 import * as whatsapp from './whatsapp.ts';
+import * as notas from './notas.ts';
 import { montarHoje } from './hoje.ts';
 import { validarConfig, guardarEmpurrado } from './conectores/index.ts';
 import { iniciarColetor, lerConta } from './email/coletor.ts';
@@ -46,6 +47,8 @@ validarConfig(
 // emailMinutos 0 desliga a leitura automática (demonstração, testes).
 const coletor = cfg.emailMinutos > 0 ? iniciarColetor(db, cofre, { minutos: cfg.emailMinutos }) : null;
 agendar(db, cfg);
+// Notas do Obsidian: só existe se o local.json apontar para o banco de sincronização.
+const leitorNotas = cfg.notas ? notas.iniciarLeitor(db, cfg.notas) : null;
 
 const HOSTS = new Set([`localhost:${cfg.porta}`, `127.0.0.1:${cfg.porta}`, ...cfg.hosts]);
 // Com domínio próprio, __Host- prende o cookie ao nome exato. Dividindo o
@@ -119,10 +122,10 @@ async function pagina(res: ServerResponse) {
     html = html.replace('/*CENTRAL_STYLES*/', () => estilos);
   }
   if (html.includes('/*CENTRAL_APP*/')) {
-    const [fluxo, app] = await Promise.all(
-      ['fluxo.js', 'app.js'].map((nome) => readFile(new URL(nome, WEB), 'utf8')),
+    const partes = await Promise.all(
+      ['fluxo.js', 'notas.js', 'app.js'].map((nome) => readFile(new URL(nome, WEB), 'utf8')),
     );
-    html = html.replace('/*CENTRAL_APP*/', () => fluxo + '\n' + app);
+    html = html.replace('/*CENTRAL_APP*/', () => partes.join('\n'));
   }
   const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(
     (m) => `'sha256-${createHash('sha256').update(m[1]).digest('base64')}'`,
@@ -315,6 +318,7 @@ const DO_DONO: Array<[string, RegExp, Fn, boolean?]> = [
       ...projetos.obter(db, id(p)),
       tarefas: tarefas.listar(db, { projeto: id(p), abertas: false }),
       conversas: caixa.listar(db, { projeto: id(p) }),
+      notas: notas.deProjeto(db, id(p)),
     }),
     true,
   ],
@@ -389,8 +393,40 @@ const DO_DONO: Array<[string, RegExp, Fn, boolean?]> = [
   [
     'GET',
     /^\/api\/busca$/,
-    (p) => caixa.buscar(db, String(q(p, 'q') || ''), { espaco: q(p, 'espaco') }),
+    (p) => ({
+      ...caixa.buscar(db, String(q(p, 'q') || ''), { espaco: q(p, 'espaco') }),
+      notas: q(p, 'q') ? notas.listar(db, { q: q(p, 'q'), espaco: q(p, 'espaco'), limite: 30 }) : [],
+    }),
     true,
+  ],
+
+  // Notas do Obsidian: a Central só lê. Editar é no Obsidian.
+  [
+    'GET',
+    /^\/api\/notas$/,
+    (p) => ({
+      estado: notas.estado(db, !!leitorNotas),
+      pastas: notas.pastas(db),
+      notas: notas.listar(db, {
+        q: q(p, 'q'),
+        pasta: q(p, 'pasta'),
+        espaco: q(p, 'espaco'),
+        limite: q(p, 'limite') === undefined ? undefined : Number(q(p, 'limite')),
+      }),
+    }),
+    true,
+  ],
+  ['GET', /^\/api\/notas\/(\d+)$/, (p) => notas.obter(db, id(p)), true],
+  ['POST', /^\/api\/notas\/(\d+)\/vinculos$/, async (p) => notas.vincular(db, id(p), await lerCorpo(p.req))],
+  ['DELETE', /^\/api\/notas\/(\d+)\/vinculos\/(\d+)$/, (p) => notas.desvincular(db, id(p), Number(p.m[2]))],
+  [
+    'POST',
+    /^\/api\/notas\/ler-agora$/,
+    async () => {
+      if (!leitorNotas) throw new ErroDeEntrada('as notas não estão ligadas nesta Central', 409);
+      await leitorNotas.agora();
+      return notas.estado(db, true);
+    },
   ],
 
   ['GET', /^\/api\/contas$/, () => contas.listar(db)],
@@ -532,6 +568,7 @@ servidor.listen(cfg.porta, cfg.escuta, () => {
 
 const desligar = () => {
   coletor?.parar();
+  leitorNotas?.parar();
   servidor.close();
   db.close();
   process.exit(0);

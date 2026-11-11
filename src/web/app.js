@@ -99,6 +99,8 @@ const D = {
   sessoes: null,
   conectores: null,
   busca: null,
+  notas: null,
+  nota: null,
   vocab: { status: [], estados: [] },
   erro: null,
 };
@@ -110,6 +112,9 @@ const UI = {
   busca: '',
   buscaTudo: '',
   conversa: null,
+  nota: null,
+  buscaNotas: '',
+  pastaNotas: '',
   tokenNovo: null,
   gaveta: null,
 };
@@ -118,6 +123,7 @@ const ABAS = [
   'caixa',
   'tarefas',
   'projetos',
+  'notas',
   'pessoas',
   'espaco',
   'operacao',
@@ -208,6 +214,7 @@ function desenharNav() {
     ['caixa', 'Caixa', 'caixa', c.responder],
     ['tarefas', 'Tarefas', 'tarefas', tarefasN],
     ['projetos', 'Projetos', 'camadas', ''],
+    ['notas', 'Notas', 'nota', ''],
     ['pessoas', 'Pessoas', 'pessoas', ''],
   ];
   $('#nav').innerHTML = itens
@@ -228,16 +235,17 @@ function desenharNav() {
     $('#contexto-origem').innerHTML = D.operacao?.espaco_local
       ? `<button class="btn mini" data-trocar-contexto>${UI.contexto === 'local' ? 'Trabalho local · trocar' : 'Central pessoal · trocar'}</button>`
       : '';
-  $('#abas-movel').innerHTML = [...itens.filter(([id]) => id !== 'pessoas'), ['mais', 'Mais', 'conexao', '']]
+  $('#abas-movel').innerHTML = [...itens.filter(([id]) => !['pessoas', 'notas'].includes(id)), ['mais', 'Mais', 'conexao', '']]
     .map(
       ([id, nome, i, n]) =>
-        `<button data-ir="${id}" ${UI.aba === id || (id === 'mais' && ['conexoes', 'espacos', 'operacao', 'pessoas', 'espaco'].includes(UI.aba)) ? 'aria-current="page"' : ''}>${ico(i)}${nome}${n && id === 'caixa' ? `<span class="n">${n}</span>` : ''}</button>`,
+        `<button data-ir="${id}" ${UI.aba === id || (id === 'mais' && ['conexoes', 'espacos', 'operacao', 'pessoas', 'espaco', 'notas'].includes(UI.aba)) ? 'aria-current="page"' : ''}>${ico(i)}${nome}${n && id === 'caixa' ? `<span class="n">${n}</span>` : ''}</button>`,
     )
     .join('');
 }
 function ir(aba, { conversa = null } = {}) {
   UI.aba = aba;
   UI.conversa = conversa;
+  UI.nota = null;
   if (!conversa || String(D.conversa?.id) !== String(conversa)) D.conversa = null;
   atualizarEndereco();
   fecharGaveta();
@@ -308,6 +316,7 @@ async function carregarAba(forcar) {
         api('GET', '/api/sessoes'),
         api('GET', '/api/conectores'),
       ]);
+    if (UI.aba === 'notas') await carregarNotas(novos);
     if (UI.aba === 'busca')
       novos.busca = await api('GET', `/api/busca?q=${encodeURIComponent(UI.buscaTudo)}${qs ? '&' + qs : ''}`);
     if (sequencia !== UI.carga) return;
@@ -335,6 +344,7 @@ function desenhar() {
     pessoas: desenharPessoas,
     espacos: desenharEspacos,
     conexoes: desenharConexoes,
+    notas: desenharNotas,
     busca: desenharBusca,
   }[UI.aba];
   $('#conteudo').innerHTML =
@@ -794,9 +804,10 @@ function desenharBusca() {
     esc(t)
       .replace(/\u0002/g, '<mark>')
       .replace(/\u0003/g, '</mark>');
-  const total = b.conversas.length + b.tarefas.length + b.pessoas.length;
+  const notasB = b.notas || [];
+  const total = b.conversas.length + b.tarefas.length + b.pessoas.length + notasB.length;
   return `<div class="pagina busca-res">
-    <div class="cab"><div><h1>“${esc(UI.buscaTudo)}”</h1><p>${plural(total, 'resultado', 'resultados')} em mensagens, tarefas e pessoas de todos os espaços.</p></div></div>
+    <div class="cab"><div><h1>“${esc(UI.buscaTudo)}”</h1><p>${plural(total, 'resultado', 'resultados')} em mensagens, tarefas, pessoas e notas de todos os espaços.</p></div></div>
     ${faixaErro()}
     <section class="cartao">
     ${
@@ -813,6 +824,7 @@ function desenharBusca() {
     }
     ${b.tarefas.length ? `<div class="grupo-tit"><span>Tarefas</span><span>${b.tarefas.length}</span></div>${b.tarefas.map((t) => `<div class="fila-item toque" data-tarefa="${t.id}"><div class="txt"><div class="nome"><span>${esc(t.titulo)}</span></div><div class="prev">${NOME_STATUS[t.status]}${t.proxima ? ' · ' + dataCurta(t.proxima) : ''}</div></div>${chipEspaco(t.espaco_id)}</div>`).join('')}` : ''}
     ${b.pessoas.length ? `<div class="grupo-tit"><span>Pessoas</span><span>${b.pessoas.length}</span></div>${b.pessoas.map((p) => `<div class="fila-item toque" data-pessoa="${p.id}">${avatar(p.nome, p.espacos?.[0]?.id)}<div class="txt"><div class="nome"><span>${esc(p.nome)}</span></div></div></div>`).join('')}` : ''}
+    ${notasB.length ? `<div class="grupo-tit"><span>Notas</span><span>${notasB.length}</span></div>${notasB.map(linhaNota).join('')}` : ''}
     ${total ? '' : '<div class="vazio"><b>Nada encontrado</b>A busca ignora acentos; tente uma palavra só.</div>'}
     </section></div>`;
 }
@@ -1488,6 +1500,7 @@ async function iniciarApp() {
   UI.mensagem = Number(params.get('mensagem')) || null;
   UI.aba = ABAS.includes(aba) && aba !== 'busca' ? aba : 'hoje';
   UI.conversa = UI.aba === 'caixa' && /^\d+$/.test(conversa || '') ? conversa : null;
+  UI.nota = UI.aba === 'notas' && /^\d+$/.test(conversa || '') ? conversa : null;
   desenharNav();
   $('#conteudo').innerHTML = '<div class="pagina"><div class="vazio">Carregando…</div></div>';
   await carregarBase();

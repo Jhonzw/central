@@ -9,6 +9,7 @@
 //   node src/admin.ts backup                   faz o backup agora
 //   node src/admin.ts whatsapp <id> <espaço> <arquivo>
 //                                              cria a conta de WhatsApp e grava o token do processo no arquivo (600)
+//   node src/admin.ts notas [reler]            lê agora o que mudou no vault do Obsidian; "reler" passa por tudo de novo
 //
 // CENTRAL_URL muda o endereço impresso no convite (padrão http://localhost:<porta>).
 
@@ -18,6 +19,7 @@ import * as acesso from './acesso.ts';
 import { backup } from './manutencao.ts';
 import { lerOuCriarChave, criarCofre } from './cofre.ts';
 import * as contas from './contas.ts';
+import * as notas from './notas.ts';
 import { writeFileSync } from 'node:fs';
 
 const cfg = lerConfig();
@@ -60,8 +62,14 @@ switch (cmd) {
     console.log(`conta ${id} criada; token gravado em ${arquivo}`);
     break;
   }
+  case 'notas': {
+    if (!cfg.notas) throw new Error('as notas não estão configuradas ("notas" no local.json)');
+    if (args[0] === 'reler') notas.reler(db);
+    console.log(await notas.sincronizar(db, cfg.notas), notas.estado(db, true));
+    break;
+  }
   default:
-    console.log('uso: node src/admin.ts convite [horas] | token <nome> <escopo> | tokens | revogar <id> | sair-de-todas | backup | whatsapp <id> <espaço> <arquivo>');
+    console.log('uso: node src/admin.ts convite [horas] | token <nome> <escopo> | tokens | revogar <id> | sair-de-todas | backup | whatsapp <id> <espaço> <arquivo> | notas [reler]');
     process.exitCode = 1;
 }
 db.close();

@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ConfigConector } from './conectores/index.ts';
+import { IGNORAR_PADRAO, type ConfigNotas } from './notas.ts';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -23,7 +24,28 @@ export type Config = {
   emailMinutos: number;
   espacos: Array<Record<string, unknown>>;
   conectores: ConfigConector[];
+  notas: ConfigNotas | null; // banco de sincronização do Obsidian; null = sem notas
 };
+
+// Notas: "notas" no local.json (url, banco, usuario, senhaArq, segundos, ignorar, pastas).
+// A senha nunca fica no local.json: vem de um arquivo à parte (senhaArq ou CENTRAL_NOTAS_SENHA_ARQ).
+function lerNotas(f: Record<string, any> | undefined, env: NodeJS.ProcessEnv): ConfigNotas | null {
+  const url = env.CENTRAL_NOTAS_URL || f?.url;
+  if (!url) return null;
+  const senhaArq = env.CENTRAL_NOTAS_SENHA_ARQ || f?.senhaArq;
+  if (!senhaArq || !existsSync(senhaArq)) throw new Error('notas: falta o arquivo da senha (senhaArq ou CENTRAL_NOTAS_SENHA_ARQ)');
+  const ignorar = [...IGNORAR_PADRAO, ...(Array.isArray(f?.ignorar) ? f.ignorar.map(String) : [])];
+  for (const r of ignorar) new RegExp(r, 'iu'); // expressão inválida falha aqui, na subida
+  return {
+    url: String(url),
+    banco: String(env.CENTRAL_NOTAS_BANCO || f?.banco || 'vault'),
+    usuario: String(env.CENTRAL_NOTAS_USUARIO || f?.usuario || 'central'),
+    senha: readFileSync(senhaArq, 'utf8').trim(),
+    segundos: Number(f?.segundos || 60),
+    ignorar,
+    pastas: f?.pastas && typeof f.pastas === 'object' ? f.pastas : {},
+  };
+}
 
 function caminhoBase(v: unknown): string {
   const b = String(v ?? '').replace(/\/+$/, '');
@@ -52,5 +74,6 @@ export function lerConfig(env = process.env): Config {
     emailMinutos: Number(env.CENTRAL_EMAIL_MINUTOS ?? f.emailMinutos ?? 5),
     espacos: f.espacos || [],
     conectores: f.conectores || [],
+    notas: lerNotas(f.notas, env),
   };
 }

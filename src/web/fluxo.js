@@ -31,6 +31,7 @@ function atualizarEndereco() {
       '#' +
       UI.aba +
       (UI.aba === 'caixa' && UI.conversa ? '/' + UI.conversa : '') +
+      (UI.aba === 'notas' && UI.nota ? '/' + UI.nota : '') +
       (qs.size ? '?' + qs : ''),
   );
 }
@@ -189,6 +190,7 @@ function desenharMais() {
   return `<div class="pagina"><div class="cab"><div><h1>Seu espaço de trabalho</h1><p>Escolha o contexto e continue dentro da Central.</p></div></div>${contextoTopo()}
     ${D.operacao?.espaco_local ? `<button class="btn" data-trocar-contexto>${UI.contexto === 'local' ? 'Abrir Central pessoal' : 'Abrir trabalho local'}</button>` : ''}
     <div class="atalhos-espaco bloco-contexto">${[
+      ['notas', 'Notas'],
       ['pessoas', 'Pessoas'],
       ['operacao', 'Operação'],
       ['conexoes', 'Conexões'],
